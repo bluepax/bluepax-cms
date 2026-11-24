@@ -10,6 +10,7 @@ import {
   originalKey,
   StorageKeyError,
   variantKey,
+  withoutTrailingSlashes,
   type StorageDriver,
 } from './index.ts';
 
@@ -104,6 +105,22 @@ describe('local driver', () => {
   it('removes empty variant folders on delete', async () => {
     await driver.delete(`2026/11/${hash}/w480.webp`);
     expect(await readdir(join(root, 'uploads', '2026', '11'))).toEqual([`${hash}.png`]);
+  });
+
+  it('trims trailing slashes of the public base URL quickly', () => {
+    expect(withoutTrailingSlashes('https://cms.example.com/uploads///')).toBe(
+      'https://cms.example.com/uploads',
+    );
+    expect(withoutTrailingSlashes('///')).toBe('');
+    expect(withoutTrailingSlashes('/uploads')).toBe('/uploads');
+    // `/\/+$/` needs seconds for this; the loop needs microseconds.
+    const started = performance.now();
+    expect(withoutTrailingSlashes(`${'/'.repeat(200_000)}x`)).toHaveLength(200_001);
+    expect(performance.now() - started).toBeLessThan(500);
+    const other = createLocalDriver({ root, publicBaseUrl: 'https://cms.example.com/uploads//' });
+    expect(other.publicUrl(`2026/11/${hash}.png`)).toBe(
+      `https://cms.example.com/uploads/2026/11/${hash}.png`,
+    );
   });
 
   it('builds public URLs and refuses invalid keys', async () => {
