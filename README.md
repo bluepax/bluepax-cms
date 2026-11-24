@@ -45,6 +45,7 @@ See chapter 6 of the [specification](docs/spec/README.md).
 ## Documentation
 
 - [Specification](docs/spec/README.md) (Chinese): the single source of truth for the implementation.
+- [Architecture decisions](docs/adr/README.md) (Chinese): how the implementation interprets the specification.
 - [Contributing](CONTRIBUTING.md): development setup, branches and commit rules.
 - [Security policy](SECURITY.md)
 
