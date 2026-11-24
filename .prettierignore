@@ -7,3 +7,5 @@ docs/spec/
 **/dist
 **/coverage
 packages/db/migrations/
+apps/cms/src/lib/paraglide/
+apps/cms/project.inlang/

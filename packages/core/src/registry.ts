@@ -1,5 +1,5 @@
 import type { ModuleManifest } from './manifest.ts';
-import { isCoreModule, isModuleId, type ModuleId } from './modules.ts';
+import { isCoreModule, isModuleId, MODULE_TABLE, type ModuleId } from './modules.ts';
 
 const NAME = '[a-z][a-z0-9_]*';
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
@@ -79,7 +79,24 @@ export class ModuleRegistry {
   /** All permission points of the given modules. */
   permissions(ids: Iterable<ModuleId>): string[] {
     const result: string[] = [];
-    for (const id of ids) result.push(...(this.#modules.get(id)?.permissions ?? []));
+    for (const id of ids) {
+      for (const p of this.#modules.get(id)?.permissions ?? []) result.push(p.name);
+    }
+    return result.sort();
+  }
+
+  /**
+   * Permissions of the default editor role (chapter 3, "角色"): the content actions of the
+   * given modules whose "编辑" column is ✓; never settings or user management.
+   */
+  editorPermissions(ids: Iterable<ModuleId>): string[] {
+    const result: string[] = [];
+    for (const id of ids) {
+      if (!MODULE_TABLE[id].editor) continue;
+      for (const p of this.#modules.get(id)?.permissions ?? []) {
+        if (p.kind === 'content') result.push(p.name);
+      }
+    }
     return result.sort();
   }
 }
@@ -100,10 +117,12 @@ function validateManifest(m: ModuleManifest): void {
   }
 
   const permission = new RegExp(`^${m.id}\\.${NAME}$`);
+  const own = new Set<string>();
   for (const p of m.permissions ?? []) {
-    if (!permission.test(p)) fail(`permission "${p}" must look like "${m.id}.<action>"`);
+    if (!permission.test(p.name)) fail(`permission "${p.name}" must look like "${m.id}.<action>"`);
+    if (own.has(p.name)) fail(`permission "${p.name}" is declared twice`);
+    own.add(p.name);
   }
-  const own = new Set(m.permissions ?? []);
   for (const item of m.menu ?? []) {
     if (!own.has(item.permission)) fail(`menu item "${item.label}" uses undeclared permission`);
   }

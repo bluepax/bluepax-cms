@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { defineModule } from './manifest.ts';
 import { ModuleRegistry, ModuleRegistryError } from './registry.ts';
 
-const site = defineModule({ id: 'site', version: '1.0.0', permissions: ['site.manage'] });
+const site = defineModule({
+  id: 'site',
+  version: '1.0.0',
+  permissions: [{ name: 'site.manage', kind: 'settings' }],
+});
 const pages = defineModule({ id: 'pages', version: '1.0.0', dependsOn: ['site'] });
 const catalog = defineModule({ id: 'catalog', version: '1.0.0', dependsOn: ['pages'] });
 const inquiries = defineModule({ id: 'inquiries', version: '1.0.0', dependsOn: ['catalog'] });
@@ -21,8 +25,25 @@ describe('ModuleRegistry.register', () => {
 
   it('rejects permissions outside the module namespace', () => {
     const registry = new ModuleRegistry();
-    const bad = defineModule({ id: 'pages', version: '1.0.0', permissions: ['posts.edit'] });
+    const bad = defineModule({
+      id: 'pages',
+      version: '1.0.0',
+      permissions: [{ name: 'posts.edit', kind: 'content' }],
+    });
     expect(() => registry.register(bad)).toThrow(/pages\.<action>/);
+  });
+
+  it('rejects a permission declared twice', () => {
+    const registry = new ModuleRegistry();
+    const bad = defineModule({
+      id: 'pages',
+      version: '1.0.0',
+      permissions: [
+        { name: 'pages.edit', kind: 'content' },
+        { name: 'pages.edit', kind: 'settings' },
+      ],
+    });
+    expect(() => registry.register(bad)).toThrow(/declared twice/);
   });
 
   it('rejects menu items with undeclared permissions', () => {
@@ -30,7 +51,7 @@ describe('ModuleRegistry.register', () => {
     const bad = defineModule({
       id: 'pages',
       version: '1.0.0',
-      permissions: ['pages.read'],
+      permissions: [{ name: 'pages.read', kind: 'content' }],
       menu: [{ label: 'menu.pages', href: '/admin/pages', permission: 'pages.edit' }],
     });
     expect(() => registry.register(bad)).toThrow(/undeclared permission/);
@@ -110,6 +131,28 @@ describe('ModuleRegistry.resolveEnabled', () => {
 
   it('keeps an optional module off when a dependency is off', () => {
     expect(registry.resolveEnabled(['inquiries']).has('inquiries')).toBe(false);
+  });
+});
+
+describe('ModuleRegistry.editorPermissions', () => {
+  const registry = new ModuleRegistry()
+    .register(site)
+    .register({
+      id: 'pages',
+      version: '1.0.0',
+      permissions: [
+        { name: 'pages.edit', kind: 'content' },
+        { name: 'pages.settings', kind: 'settings' },
+      ],
+    })
+    .register({
+      id: 'users',
+      version: '1.0.0',
+      permissions: [{ name: 'users.manage', kind: 'content' }],
+    });
+
+  it('grants only content actions of modules editors may use', () => {
+    expect(registry.editorPermissions(['site', 'pages', 'users'])).toEqual(['pages.edit']);
   });
 });
 
