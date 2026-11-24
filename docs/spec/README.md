@@ -72,7 +72,7 @@ BluePax CMS 是开源（MIT）的通用 Headless CMS，面向企业官网与博�
 
 CMS 由 8 个核心模块和 6 个可选模块组成，所有实例沿用同一张模块与权限表。
 
-**模块规范**：每个模块用清单（manifest）注册，声明 ID、版本与依赖、数据表与迁移、权限点 `模块ID.动作`、管理菜单、API 端点、提供的区块、后台任务、Webhook 事件 `模块ID.对象.事件`、设置项与默认值；核心只依赖清单。新功能先归入某个模块，新模块先在下表登记再实现。可选模块关闭后，菜单隐藏、接口返回 404、任务与区块停用，数据保留。
+**模块规范**：每个模块用清单（manifest）注册，声明 ID、版本与依赖、数据表与迁移、权限点 `模块ID.动作`、管理菜单、API 端点、提供的区块、后台任务、Webhook 事件（`对象.事件`，名称以第 6 章事件表为准，如 `content.published`）、设置项与默认值；核心只依赖清单。新功能先归入某个模块，新模块先在下表登记再实现。可选模块关闭后，菜单隐藏、接口返回 404、任务与区块停用，数据保留。
 
 | 模块 ID | 类型 | 功能 | 编辑 |
 | --- | --- | --- | --- |
@@ -407,7 +407,7 @@ bluepax-cms/
 **约定**
 
 - 不含任何遥测；不提交真实站点数据、域名、品牌素材，示例一律用虚构站点。
-- 开启 secret scanning 与 push protection；依赖只允许宽松许可（MIT、BSD、ISC、Apache-2.0 等），CI 拦截 GPL / AGPL / LGPL。唯一例外是 sharp 依赖的 libvips 预编译包（`@img/sharp-libvips-*`，LGPL-3.0）：以动态链接方式使用，列入许可白名单，许可证文本随镜像与 `THIRD_PARTY_NOTICES.md` 一并提供。
+- 开启 secret scanning 与 push protection。依赖许可按用途区分，CI 检查整个 workspace：生产依赖（各 workspace 包的 `dependencies`，即进入镜像的部分）只允许宽松许可（MIT、BSD、ISC、Apache-2.0 等）；开发依赖只拦截 GPL / AGPL / LGPL 与无法识别的许可，允许 MPL-2.0 等非 GPL 类许可（如构建工具链中的 lightningcss）。唯一例外是 sharp 依赖的 libvips 预编译包（`@img/sharp-libvips-*`，LGPL-3.0）：以动态链接方式使用，列入许可白名单，许可证文本随镜像与 `THIRD_PARTY_NOTICES.md` 一并提供。
 - 各自的前台代码与生产部署配置放在各自的私有仓库，只以镜像版本号引用本项目。
 
 ## 11. 版本与分支管理（BluePax Flow）
@@ -419,7 +419,7 @@ bluepax-cms/
 - SemVer 2.0，起始版本 `1.0.0-beta.1`；`beta` 是唯一预发布标识。
 - 预发布只用于新主版本：`X.0.0-beta.N`（N 为 build 号），之后发布正式版 `X.0.0`；次版本与修订版（如 `X.1.0`、`X.0.1`）不设 beta，直接发布正式版。例：`2.0.0-beta.512` → `2.0.0` → `2.0.1` → `2.1.0`。
 - 版本代号取天空中的生物，用一个英文小写单词（如 `swift`、`kestrel`、`albatross`）；同一主版本 X 的全部版本（含 beta）共用一个代号，新主版本换新代号，代号不重复使用。
-- build 号 = dev 分支上的提交序号（`git rev-list --count --first-parent <dev 提交>`），从 1 开始递增：dev 第一父链上的每个提交计一个 build（PR 的合并提交、所有者本地合并的提交或所有者的直接提交），功能分支内部的提交不计入；每个发布版本对应唯一 build 号。CI 检出完整历史（`fetch-depth: 0`）后计算；在 main 上构建时，取发布提交的第二父提交（即合入的 dev 提交）计数。
+- build 号 = dev 分支上的提交序号（`git rev-list --count --first-parent <dev 提交>`），从 1 开始递增：dev 第一父链上的每个提交计一个 build（PR 的合并提交、所有者本地合并的提交或所有者的直接提交，如 `chore(release)`），功能分支内部的提交不计入；每个发布版本对应唯一 build 号。CI 检出完整历史（`fetch-depth: 0`）后计算；在 main 上构建时，取发布提交的第二父提交（即合入的 dev 提交）计数。
 - 版本号、build 号、构建时间、提交 SHA 在构建时注入，显示在后台「关于」页并由 `GET /api/health` 返回。
 - 升级规则：含破坏性变更（`!` 或 `BREAKING CHANGE:`）升主版本，含 `feat` 升次版本，其余升修订号。Delivery API 与 SDK 的破坏性变更只在主版本发生。
 - 镜像标签：正式版 `X.Y.Z`、`X.Y`、`X`、`latest`；新主版本的 beta 为 `X.0.0-beta.N` 与 `beta`；dev 每次合入发布 `edge`。npm 包版本号与 CMS 一致，dist-tag 为 `latest` 与 `beta`。
@@ -429,14 +429,14 @@ bluepax-cms/
 | 分支 | 用途 | 规则 |
 | --- | --- | --- |
 | `main` | 只用于发布 | 不直接提交；每个提交都是从 dev 合入的发布提交，并带附注标签 `vX.Y.Z` 或 `vX.0.0-beta.N`，标签注释用英文，格式为「版本代号; 说明」，如 `swift; first flight` |
-| `dev` | 开发与热修复 | 默认分支；第一次提交为 `init: init the project and add basic files`；合入的内容必须完整、随时可发布；热修复也合入 dev，即使 dev 已含未发布内容；其他人只能经 PR 合入，所有者可直接 push |
-| `feature/xxx`、`fix/xxx` | 功能开发与修复 | 从 dev 拉出，按主要功能命名；合入前必须先合入最新 dev 并通过 CI；外部贡献者在 fork 中创建同名分支；所有者的分支在本地用 `git merge --no-ff` 合入 dev 后直接 push，不开 PR |
+| `dev` | 开发与热修复 | 默认分支；第一次提交为 `init: init the project and add basic files`；合入的内容必须完整、随时可发布；热修复也合入 dev，即使 dev 已含未发布内容；一个提交对应一个修复或更新；其他人只能经 PR 合入；所有者的修改（含热修复）在本地合并后直接 push，不开 PR |
+| `feature/xxx`、`fix/xxx` | 功能开发与修复 | 从 dev 拉出，按主要功能命名，热修复用 `fix/xxx`；dev 有新提交时先合入本分支做融合测试，合入 dev 前必须已包含最新 dev 并通过 CI（所有者本地合并时以 pre-push 钩子代替，见保护规则）；外部贡献者在 fork 中创建同名分支；所有者的分支（含热修复）在本地用 `git merge --no-ff` 合入 dev 后直接 push，不开 PR |
 
 **角色**（对应原「成员 / 组长 / 项目主管部」）
 
 - Contributor：在 fork 或自己的分支提交，向 dev 发起 PR。
 - Maintainer：有协作者后由 `CODEOWNERS` 指定负责的模块或目录，审核相关 PR；目前不设。
-- 所有者：组织 Owner 的个人账号（SSH key 推送），管理 dev 与 main，合并 PR、热修复、发布版本；自己的改动直接操作仓库、不走 PR（在仓库规则集中列为绕过者）；`CODEOWNERS` 默认 `* @<所有者用户名>`。不另建团队，协作者增多后再建团队替换。
+- 所有者：组织 Owner 的个人账号（SSH key 推送），管理 dev 与 main，合并 PR、热修复、发布版本；自己的改动（含热修复）在本地用 `git merge --no-ff` 合入 dev 后直接推送、不走 PR（在仓库规则集中列为绕过者）；`CODEOWNERS` 默认 `* @<所有者用户名>`。不另建团队，协作者增多后再建团队替换。
 
 **提交信息**
 
@@ -447,7 +447,7 @@ bluepax-cms/
 ```
 
 - 类型：`feat` 新功能，`fix` 修复，`perf` 性能，`refactor` 重构，`docs` 文档，`test` 测试，`build` 项目结构、依赖与配置，`ci` 持续集成，`revert` 回退，`chore` 其他（必须写清改动）；`init` 只用于第一次提交。
-- 范围取模块 ID 或包名，如 `feat(storage): add R2 backfill #42`；描述用英文祈使句。
+- 范围可选，取模块 ID 或包名，如 `feat(storage): add R2 backfill #42`；描述用英文，以动词原形开头、首字母小写、不加句号。所有提交信息（含 main 的发布提交与合并提交）与标签注释一律用英文，发布提交的正文每行首字母大写。
 - 合入 dev 只用合并提交（GitHub 的 Create a merge commit，等同 `--no-ff`），仓库关闭 squash 与 rebase 合并，保留完整提交历史；所有者在本地合并同样用 `git merge --no-ff`。每个提交都须符合规范：PR 中的提交由 CI 的 commitlint 逐个校验；所有者直接 push 时，本地 commit-msg 钩子先校验，push 到 dev 后 CI 再校验本次推送的全部提交；合并提交保留默认信息 `Merge pull request #N from …`，git-cliff 生成变更列表时跳过合并提交。
 
 **发布流程**（所有者执行）
@@ -476,7 +476,7 @@ Fix ... #121
 **保护规则**
 
 - main 与 dev 开启分支保护：禁止 force push 与删除，禁止改写历史（不使用 `reset`、不对共享分支 rebase）。
-- dev：用仓库规则集保护，其他人只能经 PR 合入（CI 通过、分支已包含最新 dev）；所有者列为绕过者，可直接 push。直接 push 没有 CI 预检，push 前由本地 pre-push 钩子跑 lint、类型检查与单元测试；push 后 CI 照常运行，未通过的提交不得发布。单人维护期间必需批准数设为 0（GitHub 不允许批准自己的 PR），有协作者后改为 1 并要求 CODEOWNERS 审核。main：只有所有者可推送。
+- dev：用仓库规则集保护，其他人只能经 PR 合入（CI 通过、分支已包含最新 dev）；所有者列为绕过者，可直接 push（含热修复的本地合并）。直接 push 没有 CI 预检，push 前由本地 pre-push 钩子跑 lint、类型检查与单元测试；push 后 CI 照常运行，未通过的提交不得发布。单人维护期间必需批准数设为 0（GitHub 不允许批准自己的 PR），有协作者后改为 1 并要求 CODEOWNERS 审核。main：只有所有者可推送。
 - push 前先 pull；只对自己负责的部分 push 和发起 PR。
 
 **相对原版的调整**
@@ -487,7 +487,7 @@ Fix ... #121
 | x.0.0 必为 beta，x.0.1 为首个正式版 | `X.0.0-beta.N` 之后的 `X.0.0` 即正式版；只有 X.0.0 有 beta | 按 SemVer，`X.0.0` 已高于其全部 beta，不必再用 `X.0.1` 区分；次版本与修订版直接发正式版 |
 | GitLab 成员 / 组长 / 项目主管部 | Contributor / Maintainer / 所有者账号 | GitHub 的 fork + PR + CODEOWNERS 模型 |
 | `structure`、`null` | `build`、`chore`，新增 `ci` | 与 Conventional Commits 工具链（commitlint、git-cliff）兼容 |
-| 热修复直接提交 dev | 所有者可直接提交 dev（含热修复）；其他人的修改走 PR | 所有者有绕过权限；直接 push 同样触发 CI，未通过的 build 不发布 |
+| 热修复直接提交 dev | 所有者的修改（含热修复）在 `fix/xxx` 等分支完成后本地用 `--no-ff` 合入 dev 并直接推送，不开 PR；其他人的修改走 PR | 所有者有绕过权限；直接 push 同样触发 CI，未通过的 build 不发布 |
 
 ## 12. 验收标准
 

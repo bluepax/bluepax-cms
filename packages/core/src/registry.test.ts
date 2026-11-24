@@ -42,6 +42,25 @@ describe('ModuleRegistry.register', () => {
     expect(() => registry.register(bad)).toThrow(/optional module "catalog"/);
   });
 
+  it('accepts webhook events named <object>.<event>', () => {
+    const registry = new ModuleRegistry();
+    const media = defineModule({
+      id: 'media',
+      version: '1.0.0',
+      webhookEvents: ['media.replaced', 'media.origin_changed'],
+    });
+    expect(() => registry.register(media)).not.toThrow();
+  });
+
+  it('rejects webhook events with a module prefix or a single segment', () => {
+    const registry = new ModuleRegistry();
+    for (const event of ['inquiries.inquiry.created', 'published']) {
+      expect(() =>
+        registry.register({ id: 'inquiries', version: '1.0.0', webhookEvents: [event] }),
+      ).toThrow(/expected "<object>.<event>"/);
+    }
+  });
+
   it('rejects invalid versions and webhook event names', () => {
     const registry = new ModuleRegistry();
     expect(() => registry.register({ id: 'site', version: 'v1' })).toThrow(/invalid version/);
