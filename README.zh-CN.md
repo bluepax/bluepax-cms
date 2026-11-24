@@ -42,6 +42,7 @@ pnpm add @bluepax/cms-client @bluepax/cms-blocks
 ## 文档
 
 - [设计规范](docs/spec/README.md)：唯一实现依据。
+- [架构决策记录](docs/adr/README.md)：实现中对规范的解释与偏离。
 - [贡献指南](CONTRIBUTING.md)（英文）：开发环境、分支与提交规范。
 - [安全策略](SECURITY.md)（英文）
 

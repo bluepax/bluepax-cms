@@ -4,6 +4,24 @@ Thanks for your interest in BluePax CMS. The [specification](docs/spec/README.md
 single source of truth: when a change affects behaviour, the specification is updated first,
 then the code. Code, comments, commit messages and issues are written in English.
 
+Decisions that interpret or deviate from the specification are recorded in
+[docs/adr](docs/adr/README.md).
+
+## Repository layout
+
+```
+apps/cms/            SvelteKit app: admin UI, all APIs and the startup entry
+packages/core/       module manifests and registry, permissions, events (private)
+packages/db/         Drizzle schema and migration sets (private)
+deploy/dev/          development database (docker compose)
+docs/spec/           the specification
+docs/adr/            architecture decision records
+scripts/             repository tooling: license gate, release scripts
+```
+
+Packages that are not published are marked `"private": true`. Only `@bluepax/cms-client` and
+`@bluepax/cms-blocks` are published, to GitHub Packages.
+
 ## Development setup
 
 Requirements: Node.js 26 (see `.nvmrc`), pnpm 12 (see `packageManager` in `package.json`)
@@ -60,11 +78,19 @@ Signed-off-by: Your Name <you@example.com>
 ```
 
 - Types: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `revert`, `chore`.
-- Scope is a module ID or a package name, for example `feat(storage): add R2 backfill #42`.
+- Scope is optional. When given, it is a module ID or a package name, for example
+  `feat(storage): add R2 backfill #42`. Allowed scopes:
+  - core modules: `dashboard`, `site`, `pages`, `posts`, `media`, `seo`, `api`, `users`
+  - optional modules: `catalog`, `inquiries`, `regions`, `tracking`, `insights`, `ai`
+  - apps and packages: `cms`, `core`, `db`, `jobs`, `presets`, `storage`, `cms-blocks`,
+    `cms-client`, `minimal-site`, `deploy`
+  - housekeeping: `deps`, `release`
 - The description is an imperative sentence in English, lowercase, without a trailing period.
 - `!` or a `BREAKING CHANGE:` footer marks a breaking change.
 
-Every commit in a pull request is checked by commitlint in CI.
+CI checks every commit of a pull request and of every push to `dev` with commitlint, and runs
+lint, typecheck, unit and integration tests (against PostgreSQL), the license gate and the
+build; CodeQL runs alongside.
 
 ## Developer Certificate of Origin
 
