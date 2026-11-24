@@ -8,6 +8,10 @@ site:
   timezone: UTC
   publisher:
     type: person
+    name: Alex Example
+    sameAs: []
+  brandTerms: [Example Notes]
+  im: null
 languages:
   content:
     - code: en

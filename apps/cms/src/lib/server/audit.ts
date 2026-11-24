@@ -1,5 +1,5 @@
 // Audit log (chapter 9): logins, permissions, settings, publishing, deletions, tokens, storage.
-import { schema, type Database } from '@bluepax/db';
+import { schema, type Database, type Executor } from '@bluepax/db';
 import { desc, eq, lt } from 'drizzle-orm';
 
 export interface AuditEntry {
@@ -12,7 +12,8 @@ export interface AuditEntry {
   ip?: string | null;
 }
 
-export async function audit(db: Database, entry: AuditEntry): Promise<void> {
+/** Takes a transaction too, so a change and its log entry are written together. */
+export async function audit(db: Executor, entry: AuditEntry): Promise<void> {
   await db.insert(schema.auditLog).values({
     action: entry.action,
     actorId: entry.actorId ?? null,

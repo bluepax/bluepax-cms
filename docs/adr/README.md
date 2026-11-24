@@ -13,3 +13,4 @@
 | [0004](0004-toolchain-versions.md)              | 工具链版本：不追最新、遵守最小发布时长 | 已采纳 |
 | [0005](0005-runtime-only-database-url.md)       | `DATABASE_URL` 只在运行时必填          | 已采纳 |
 | [0006](0006-instance-config-and-setup.md)       | 实例配置文件与初始化向导               | 已采纳 |
+| [0007](0007-site-settings.md)                   | site 模块：设置的存放与实例配置的扩展  | 已采纳 |

@@ -54,7 +54,7 @@ export async function instanceState(db: Database): Promise<InstanceState> {
 }
 
 /** Optional modules switched on in instance_modules. */
-export async function enabledOptionalModules(db: Database): Promise<OptionalModuleId[]> {
+export async function enabledOptionalModules(db: Executor): Promise<OptionalModuleId[]> {
   const rows = await db
     .select({ id: schema.instanceModules.moduleId })
     .from(schema.instanceModules)
@@ -143,7 +143,7 @@ export async function createInitialAdmin(
 }
 
 /** The current configuration in the config-file format (no secrets). */
-export async function exportInstanceConfig(db: Database): Promise<InstanceConfig> {
+export async function exportInstanceConfig(db: Executor): Promise<InstanceConfig> {
   const rows = await db
     .select()
     .from(schema.settings)
@@ -154,6 +154,40 @@ export async function exportInstanceConfig(db: Database): Promise<InstanceConfig
     ...sections,
     modules: { enabled: await enabledOptionalModules(db) },
   });
+}
+
+export type ConfigSection = (typeof SECTIONS)[number];
+
+/**
+ * Changes configuration sections from the admin (chapter 2: the config file and the settings
+ * are the same data). The whole configuration is validated again, so a change can never
+ * produce a configuration that a config file could not express. Returns the configuration
+ * before and after; only the sections that changed are written.
+ */
+export async function updateInstanceConfig(
+  db: Executor,
+  change: (current: InstanceConfig) => unknown,
+): Promise<{ before: InstanceConfig; after: InstanceConfig; changed: ConfigSection[] }> {
+  // Serialise concurrent changes so one never validates against a stale configuration.
+  await db.execute(sql`select pg_advisory_xact_lock(hashtext('bluepax:instance-config'))`);
+  const before = await exportInstanceConfig(db);
+  const after = validateConfig(change(structuredClone(before)));
+  if (after.modules.enabled.join() !== before.modules.enabled.join()) {
+    throw new Error('module switches are not changed through updateInstanceConfig');
+  }
+  const changed = SECTIONS.filter(
+    (key) => JSON.stringify(after[key]) !== JSON.stringify(before[key]),
+  );
+  for (const key of changed) {
+    await db
+      .insert(schema.settings)
+      .values({ key, value: after[key] })
+      .onConflictDoUpdate({
+        target: schema.settings.key,
+        set: { value: after[key], updatedAt: sql`now()` },
+      });
+  }
+  return { before, after, changed };
 }
 
 /** Admin UI language that new accounts start with. */
