@@ -8,6 +8,19 @@ site:
   timezone: Asia/Shanghai
   publisher:
     type: organization
+    # Empty means the site name; the logo is set in the admin once media exists.
+    name: Example Industries
+    sameAs:
+      - https://social.example.com/example-industries
+  brandTerms: [Example Industries, ExampleInd]
+  # Instant messaging button: channel key, number and a prefilled text per content language.
+  im:
+    channel: whatsapp
+    number: '+15550100'
+    text:
+      zh-CN: 你好，我想咨询一下。
+      en: Hello, I have a question.
+      ar: مرحبًا، لدي سؤال.
 languages:
   content:
     - code: zh-CN

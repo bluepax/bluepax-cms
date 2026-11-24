@@ -11,11 +11,15 @@ import { BLOCK_KEYS } from './blocks.ts';
 export const CONFIG_VERSION = 1;
 export const SITE_TYPES = ['corporate', 'blog'] as const;
 export const ADMIN_LOCALES = ['zh', 'en'] as const;
+/** JSON-LD publisher: Organization (corporate default) or Person (blog default). */
+export const PUBLISHER_TYPES = ['organization', 'person'] as const;
 
 export type SiteType = (typeof SITE_TYPES)[number];
 export type AdminLocale = (typeof ADMIN_LOCALES)[number];
+export type PublisherType = (typeof PUBLISHER_TYPES)[number];
 
-function canonicalLocale(value: string): string | null {
+/** Canonical BCP 47 form of a language tag (`zh-cn` → `zh-CN`), or null if it is not one. */
+export function canonicalLocale(value: string): string | null {
   try {
     const [canonical] = Intl.getCanonicalLocales(value);
     return canonical ?? null;
@@ -50,9 +54,31 @@ const timezone = z.string().refine((value) => {
   }
 }, 'must be an IANA time zone, e.g. Asia/Shanghai');
 
-const baseUrl = z
-  .url({ protocol: /^https?$/, message: 'must be an http(s) URL' })
-  .transform((value) => value.replace(/\/+$/, ''));
+export const httpUrl = z.url({ protocol: /^https?$/, message: 'must be an http(s) URL' });
+
+const baseUrl = httpUrl.transform((value) => value.replace(/\/+$/, ''));
+
+/**
+ * Lowercase key of an instant messaging channel or social network, e.g. `whatsapp`.
+ * Not a fixed list: the frontend maps the key to its link format and icon.
+ */
+export const serviceKey = z
+  .string()
+  .trim()
+  .regex(/^[a-z][a-z0-9-]{1,31}$/, 'must be a lowercase key such as whatsapp');
+
+/** Instant messaging (chapter 8): one channel, its number and a prefilled text per language. */
+const instantMessaging = z.strictObject({
+  channel: serviceKey,
+  /** Phone number or account name, in the form the channel expects. */
+  number: z.string().trim().min(1).max(64),
+  /** Prefilled message per content language; languages without a text are left out. */
+  text: z.record(z.string(), z.string().trim().max(500)).default({}),
+});
+
+function unique<T>(values: readonly T[]): T[] {
+  return [...new Set(values)];
+}
 
 const contentLanguage = z.strictObject({
   code: locale,
@@ -68,7 +94,16 @@ export const instanceConfigSchema = z
       name: z.string().trim().min(1),
       /** Time zone used by the frontend to display dates. */
       timezone: timezone.default('UTC'),
-      publisher: z.strictObject({ type: z.enum(['organization', 'person']) }),
+      publisher: z.strictObject({
+        type: z.enum(PUBLISHER_TYPES),
+        /** Empty means the site name. The logo or avatar is added with the media module. */
+        name: z.string().trim().max(200).default(''),
+        /** Profiles of the publisher elsewhere (JSON-LD `sameAs`). */
+        sameAs: z.array(httpUrl).default([]),
+      }),
+      /** Names the brand is known by, e.g. for brand-mention checks. */
+      brandTerms: z.array(z.string().trim().min(1).max(100)).default([]),
+      im: instantMessaging.nullable().default(null),
     }),
     languages: z.strictObject({
       content: z.array(contentLanguage).min(1),
@@ -103,8 +138,35 @@ export const instanceConfigSchema = z
         message: 'the primary language must be one of the content languages',
       });
     }
+    let im = config.site.im;
+    if (im) {
+      const given = new Map<string, string>();
+      for (const [key, value] of Object.entries(im.text)) {
+        const code = canonicalLocale(key);
+        if (!code || !codes.includes(code)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['site', 'im', 'text', key],
+            message: 'must be one of the content languages',
+          });
+        } else if (value) given.set(code, value);
+      }
+      // Keys follow the order of the content languages so exports are stable.
+      const text: Record<string, string> = {};
+      for (const code of codes) {
+        const value = given.get(code);
+        if (value) text[code] = value;
+      }
+      im = { ...im, text };
+    }
     return {
       ...config,
+      site: {
+        ...config.site,
+        publisher: { ...config.site.publisher, sameAs: unique(config.site.publisher.sameAs) },
+        brandTerms: unique(config.site.brandTerms),
+        im,
+      },
       languages: {
         ...config.languages,
         content: config.languages.content.map((l) => ({

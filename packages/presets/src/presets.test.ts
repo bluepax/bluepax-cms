@@ -98,6 +98,59 @@ describe('instance config', () => {
     ).toThrow(/languages.primary/);
   });
 
+  it('fills the site fields that older config files do not have', () => {
+    const config = validateConfig({
+      ...valid,
+      site: { type: 'blog', name: 'Old File', publisher: { type: 'person' } },
+    });
+    expect(config.site).toEqual({
+      type: 'blog',
+      name: 'Old File',
+      timezone: 'UTC',
+      publisher: { type: 'person', name: '', sameAs: [] },
+      brandTerms: [],
+      im: null,
+    });
+  });
+
+  it('keeps instant messaging texts for content languages only, in language order', () => {
+    const site = {
+      ...valid.site,
+      brandTerms: ['Example', 'Example', 'Ex'],
+      publisher: {
+        type: 'organization' as const,
+        name: 'Example Ltd',
+        sameAs: ['https://social.example.com/a', 'https://social.example.com/a'],
+      },
+      im: {
+        channel: 'whatsapp',
+        number: ' +15550100 ',
+        text: { ar: 'مرحبا', 'zh-hans': '你好', en: '' },
+      },
+    };
+    const config = validateConfig({ ...valid, site });
+    expect(config.site.im).toEqual({
+      channel: 'whatsapp',
+      number: '+15550100',
+      text: { 'zh-Hans': '你好', ar: 'مرحبا' },
+    });
+    expect(config.site.brandTerms).toEqual(['Example', 'Ex']);
+    expect(config.site.publisher.sameAs).toEqual(['https://social.example.com/a']);
+
+    expect(() =>
+      validateConfig({ ...valid, site: { ...site, im: { ...site.im, text: { fr: 'Bonjour' } } } }),
+    ).toThrow(/site.im.text.fr/);
+    expect(() =>
+      validateConfig({ ...valid, site: { ...site, im: { ...site.im, channel: 'What App' } } }),
+    ).toThrow(/site.im.channel/);
+    expect(() =>
+      validateConfig({
+        ...valid,
+        site: { ...site, publisher: { ...site.publisher, sameAs: ['javascript:alert(1)'] } },
+      }),
+    ).toThrow(/site.publisher.sameAs.0/);
+  });
+
   it('rejects unknown keys and broken YAML', () => {
     expect(() => validateConfig({ ...valid, extra: true })).toThrow(ConfigError);
     expect(() => parseConfigYaml('site: [')).toThrow(/YAML/);
@@ -117,6 +170,8 @@ describe('example configs', () => {
       expect(config.blocks.available).toEqual(
         configFromPreset({ ...answers, type }).blocks.available,
       );
+      // The YAML written by an export reads back to the same configuration.
+      expect(parseConfigYaml(stringifyConfig(config))).toEqual(config);
     }
   });
 });
