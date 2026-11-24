@@ -52,6 +52,11 @@ vi.mock('../../runtime.ts', () => ({
 }));
 
 const limits = { image: 20, document: 50, video: 200 };
+/**
+ * Encoding AVIF variants takes a few seconds on CI runners (about 4–5 s for one photo), more
+ * than Vitest's default of 5 s per test.
+ */
+const IMAGE_TEST_TIMEOUT = 30_000;
 
 function png(width: number, height: number, color = { r: 30, g: 90, b: 200 }) {
   return sharp({ create: { width, height, channels: 3, background: color } })
@@ -89,7 +94,7 @@ async function code(run: Promise<unknown>): Promise<MediaErrorCode> {
   throw new Error('expected a MediaError');
 }
 
-describe('media module (unit)', () => {
+describe('media module (unit)', { timeout: IMAGE_TEST_TIMEOUT }, () => {
   it('gives editors the content permission but not the storage settings', () => {
     const all = registry.order().map((m) => m.id);
     expect(registry.permissions(all)).toEqual(
@@ -222,7 +227,7 @@ const migrations = fileURLToPath(
   new URL('../../../../../../../packages/db/migrations', import.meta.url),
 );
 
-describe.skipIf(!baseUrl)('media module', () => {
+describe.skipIf(!baseUrl)('media module', { timeout: IMAGE_TEST_TIMEOUT }, () => {
   let pool: ReturnType<typeof createPool>;
   let db: Database;
   let root: string;
