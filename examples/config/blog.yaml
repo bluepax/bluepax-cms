@@ -1,0 +1,33 @@
+# BluePax CMS instance configuration, see docs/spec/README.md chapter 2.
+# Fictional example for a blog. Copy it to the site's deployment repository, adjust it and
+# point BLUEPAX_CONFIG_FILE at it to initialise an empty instance unattended.
+version: 1
+site:
+  type: blog
+  name: Example Notes
+  timezone: UTC
+  publisher:
+    type: person
+languages:
+  content:
+    - code: en
+  primary: en
+  admin: en
+frontend:
+  baseUrl: https://blog.example.com
+modules:
+  enabled: [ai, insights, tracking]
+blocks:
+  available:
+    - hero
+    - text-media
+    - cards
+    - steps
+    - stats
+    - logos
+    - featured-posts
+    - latest-posts
+    - contact-cta
+    - rich-text
+storage:
+  mode: local

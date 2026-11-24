@@ -1,6 +1,6 @@
 // Account and role management (chapter 3): accounts are created by admins only, a role is a
 // set of permission points, and the instance always keeps at least one active admin.
-import { schema, type Database } from '@bluepax/db';
+import { schema, type Database, type Executor } from '@bluepax/db';
 import { and, asc, count, eq, isNull } from 'drizzle-orm';
 import { decrypt, encrypt } from '../../security/crypto.ts';
 import {
@@ -51,7 +51,7 @@ function isUniqueViolation(error: unknown): boolean {
 // ---------------------------------------------------------------- roles
 
 /** Creates the default roles if they are missing; the editor gets `editorPermissions`. */
-export async function seedDefaultRoles(db: Database, editorPermissions: string[]): Promise<void> {
+export async function seedDefaultRoles(db: Executor, editorPermissions: string[]): Promise<void> {
   await db
     .insert(schema.roles)
     .values([
@@ -161,7 +161,7 @@ async function activeAdminIds(db: Database): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
-async function roleKeyOf(db: Database, roleId: string): Promise<string> {
+async function roleKeyOf(db: Executor, roleId: string): Promise<string> {
   const [role] = await db
     .select({ key: schema.roles.key })
     .from(schema.roles)
@@ -216,7 +216,7 @@ export interface NewUser {
   locale: AdminLocale;
 }
 
-export async function createUser(db: Database, input: NewUser): Promise<string> {
+export async function createUser(db: Executor, input: NewUser): Promise<string> {
   const email = input.email.trim();
   if (!EMAIL.test(email)) throw new AccountError('invalid_email');
   const problem = checkPassword(input.password);

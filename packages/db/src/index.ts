@@ -7,6 +7,8 @@ export * as schema from './schema/core.ts';
 
 export const fullSchema = { ...core };
 export type Database = NodePgDatabase<typeof fullSchema>;
+/** A database or a transaction on it; functions that write take this so callers can group writes. */
+export type Executor = Database | Parameters<Parameters<Database['transaction']>[0]>[0];
 
 export type Pool = pg.Pool;
 

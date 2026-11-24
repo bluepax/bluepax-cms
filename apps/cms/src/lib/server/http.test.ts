@@ -27,8 +27,9 @@ describe('isCrossSiteWrite', () => {
 });
 
 describe('isPublicPath', () => {
-  it('only opens the login page, the health check and token APIs', () => {
+  it('only opens login, setup, the health check and token APIs', () => {
     expect(isPublicPath('/login')).toBe(true);
+    expect(isPublicPath('/setup')).toBe(true);
     expect(isPublicPath('/api/health')).toBe(true);
     expect(isPublicPath('/api/delivery/v1/site')).toBe(true);
     expect(isPublicPath('/users')).toBe(false);

@@ -1,0 +1,38 @@
+# BluePax CMS instance configuration, see docs/spec/README.md chapter 2.
+# Fictional example for a corporate website. Copy it to the site's deployment repository,
+# adjust it and point BLUEPAX_CONFIG_FILE at it to initialise an empty instance unattended.
+version: 1
+site:
+  type: corporate
+  name: Example Industries
+  timezone: Asia/Shanghai
+  publisher:
+    type: organization
+languages:
+  content:
+    - code: zh-CN
+    - code: en
+    - code: ar
+  primary: zh-CN
+  admin: zh
+frontend:
+  baseUrl: https://www.example.com
+modules:
+  enabled: [ai, catalog, inquiries, insights, regions, tracking]
+blocks:
+  available:
+    - hero
+    - text-media
+    - cards
+    - steps
+    - stats
+    - logos
+    - category-entry
+    - catalog-list
+    - featured-posts
+    - service-network
+    - latest-posts
+    - contact-cta
+    - rich-text
+storage:
+  mode: local

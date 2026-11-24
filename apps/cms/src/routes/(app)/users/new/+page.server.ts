@@ -4,13 +4,18 @@ import { accountFailure, parseLocale } from '#lib/server/forms.ts';
 import { field, requirePermission, secretField } from '#lib/server/guard.ts';
 import { clientIp } from '#lib/server/http.ts';
 import { createUser, listRoles } from '#lib/server/modules/users/accounts.ts';
+import { defaultAdminLocale } from '#lib/server/instance.ts';
 import { getDatabase } from '#lib/server/runtime.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
   requirePermission(locals, 'users.manage');
-  const roles = await listRoles(getDatabase());
-  return { roles: roles.map(({ id, name, key }) => ({ id, name, key })) };
+  const db = getDatabase();
+  const roles = await listRoles(db);
+  return {
+    roles: roles.map(({ id, name, key }) => ({ id, name, key })),
+    defaultLocale: await defaultAdminLocale(db),
+  };
 };
 
 export const actions: Actions = {
