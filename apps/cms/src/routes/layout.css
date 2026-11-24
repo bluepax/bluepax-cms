@@ -1,6 +1,10 @@
 @import 'tailwindcss';
-@import 'tw-animate-css';
-@import 'shadcn-svelte/tailwind.css';
+/*
+ * These two packages export their CSS only under the "style" condition, which the
+ * Tailwind Vite plugin does not apply in Vite 8's server build. Import the files by path.
+ */
+@import '../../node_modules/tw-animate-css/dist/tw-animate.css';
+@import '../../node_modules/shadcn-svelte/dist/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
