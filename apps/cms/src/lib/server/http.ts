@@ -4,7 +4,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 /** Paths authenticated by tokens or keys instead of the admin session (chapter 6). */
 const TOKEN_PATHS = ['/api/delivery/', '/api/inquiry/', '/api/manage/'];
 /** Paths reachable without logging in. */
-const PUBLIC_PATHS = ['/login', '/api/health'];
+const PUBLIC_PATHS = ['/login', '/setup', '/api/health'];
 
 export function isTokenPath(pathname: string): boolean {
   return TOKEN_PATHS.some((p) => pathname.startsWith(p));

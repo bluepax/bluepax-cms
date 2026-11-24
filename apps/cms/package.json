@@ -19,6 +19,7 @@
   "dependencies": {
     "@bluepax/core": "workspace:*",
     "@bluepax/db": "workspace:*",
+    "@bluepax/presets": "workspace:*",
     "@internationalized/date": "^3.12.0",
     "@lucide/svelte": "~1.77.0",
     "@node-rs/argon2": "^2.2.2",

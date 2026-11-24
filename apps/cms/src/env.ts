@@ -23,6 +23,16 @@ export const variables = defineEnvVars({
       .refine((v) => Buffer.from(v, 'base64').length === 32, 'must be 32 bytes as base64')
       .optional(),
   },
+  BLUEPAX_INSTALL_TOKEN: {
+    description:
+      'One-time install token the setup wizard asks for, at least 16 characters (chapter 2)',
+    schema: z.string().min(16, 'must be at least 16 characters').optional(),
+  },
+  BLUEPAX_CONFIG_FILE: {
+    description:
+      'Instance config (YAML) that initialises an empty instance unattended at startup (chapter 2)',
+    schema: (value) => value || undefined,
+  },
   BLUEPAX_ROLES: {
     description: 'Roles started by this process: web, worker or both (default web,worker)',
     schema: (value) => parseRoles(value),

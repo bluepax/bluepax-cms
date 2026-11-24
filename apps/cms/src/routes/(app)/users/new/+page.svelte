@@ -57,7 +57,12 @@
       </div>
       <div class="grid gap-2">
         <Label for="locale">{m.users_language()}</Label>
-        <select id="locale" name="locale" class={selectClass} value={values?.locale ?? 'zh'}>
+        <select
+          id="locale"
+          name="locale"
+          class={selectClass}
+          value={values?.locale ?? data.defaultLocale}
+        >
           <option value="zh">{m.lang_zh()}</option>
           <option value="en">{m.lang_en()}</option>
         </select>

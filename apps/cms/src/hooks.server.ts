@@ -4,7 +4,7 @@ import { getTextDirection } from '#lib/paraglide/runtime.js';
 import { paraglideMiddleware } from '#lib/paraglide/server.js';
 import { isCrossSiteWrite, isPublicPath } from '#lib/server/http.ts';
 import { validateSession } from '#lib/server/modules/users/auth.ts';
-import { getDatabase, hasRole, startup } from '#lib/server/runtime.ts';
+import { getDatabase, hasRole, isReady, startup } from '#lib/server/runtime.ts';
 import {
   clearSessionCookie,
   SESSION_COOKIE,
@@ -46,6 +46,27 @@ const csrf: Handle = ({ event, resolve }) => {
   if (isCrossSiteWrite(event.request, event.url)) {
     return new Response('Cross-site request blocked', { status: 403 });
   }
+  return resolve(event);
+};
+
+/**
+ * Until the setup wizard is done every request goes to it (chapter 9); afterwards the
+ * wizard is closed for good (chapter 2).
+ */
+const setup: Handle = async ({ event, resolve }) => {
+  const { pathname } = event.url;
+  if (pathname === '/api/health') return resolve(event);
+  const ready = await isReady();
+  if (!ready && pathname !== '/setup') {
+    if (pathname.startsWith('/api/')) {
+      return json(
+        { error: { code: 'not_initialized', message: 'Finish the setup wizard first' } },
+        { status: 503 },
+      );
+    }
+    redirect(303, '/setup');
+  }
+  if (ready && pathname === '/setup') redirect(303, '/');
   return resolve(event);
 };
 
@@ -92,4 +113,4 @@ const i18n: Handle = ({ event, resolve }) =>
     ),
   );
 
-export const handle: Handle = sequence(securityHeaders, webRole, csrf, session, guard, i18n);
+export const handle: Handle = sequence(securityHeaders, webRole, csrf, setup, session, guard, i18n);

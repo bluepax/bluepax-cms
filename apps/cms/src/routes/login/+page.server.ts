@@ -5,18 +5,13 @@ import { clientIp } from '#lib/server/http.ts';
 import {
   checkCredentials,
   checkTotpLogin,
-  createSession,
-  loadAuthUser,
   type LoginResult,
 } from '#lib/server/modules/users/auth.ts';
 import { loginLimiter } from '#lib/server/modules/users/limits.ts';
 import { getDatabase, encryptionKey, signingKey } from '#lib/server/runtime.ts';
 import { sign, verifySigned } from '#lib/server/security/crypto.ts';
-import {
-  setLocaleCookie,
-  setSessionCookie,
-  TOTP_CHALLENGE_COOKIE,
-} from '#lib/server/session-cookie.ts';
+import { TOTP_CHALLENGE_COOKIE } from '#lib/server/session-cookie.ts';
+import { signIn } from '#lib/server/sign-in.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
@@ -42,20 +37,8 @@ function rateLimited(event: RequestEvent) {
 }
 
 async function finishLogin(event: RequestEvent, userId: string): Promise<never> {
-  const db = getDatabase();
-  const user = await loadAuthUser(db, userId);
-  if (!user) redirect(303, '/login');
-  const ip = clientIp(event);
-  const session = await createSession(
-    db,
-    user.id,
-    { ip, userAgent: event.request.headers.get('user-agent') },
-    new Date(),
-  );
-  setSessionCookie(event.cookies, session.token, session.expiresAt);
-  setLocaleCookie(event.cookies, user.locale);
   event.cookies.delete(TOTP_CHALLENGE_COOKIE, { path: '/login' });
-  await audit(db, { action: 'auth.login', actorId: user.id, ip });
+  if (!(await signIn(event, userId))) redirect(303, '/login');
   redirect(303, safeNext(event.url.searchParams.get('next')));
 }
 
