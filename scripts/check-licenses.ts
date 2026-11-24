@@ -33,7 +33,7 @@ interface Entry {
 }
 
 function list(prod: boolean): Entry[] {
-  const args = ['licenses', 'list', '--json', ...(prod ? ['--prod'] : [])];
+  const args = ['licenses', 'list', '--json', '--recursive', ...(prod ? ['--prod'] : [])];
   const out = execFileSync('pnpm', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   const byLicense = JSON.parse(out) as Record<string, Entry[]>;
   return Object.values(byLicense).flat();

@@ -10,8 +10,25 @@ Requirements: Node.js 26 (see `.nvmrc`), pnpm 12 (see `packageManager` in `packa
 and Docker.
 
 ```bash
-pnpm install   # also installs the git hooks
-pnpm check     # lint, typecheck and unit tests
+pnpm install                                     # also installs the git hooks
+docker compose -f deploy/dev/compose.yaml up -d  # PostgreSQL for development and tests
+cp .env.example .env
+pnpm --filter @bluepax/cms dev                   # runs pending migrations on first request
+pnpm check                                       # lint, typecheck and unit tests
+```
+
+Integration tests run when `TEST_DATABASE_URL` is set and are skipped otherwise; they
+wipe that database, so never point it at real data:
+
+```bash
+TEST_DATABASE_URL=postgres://bluepax:bluepax@127.0.0.1:5432/bluepax_test pnpm test
+```
+
+New migrations are generated per migration set (`core` or a module ID) from
+`packages/db/src/schema/<set>.ts`:
+
+```bash
+pnpm --filter @bluepax/db generate <set> <label>
 ```
 
 Git hooks (installed by `pnpm install`):
