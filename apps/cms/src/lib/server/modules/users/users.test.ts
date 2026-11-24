@@ -18,6 +18,7 @@ import {
   createRole,
   createUser,
   deleteRole,
+  isEmailAddress,
   listRoles,
   seedDefaultRoles,
   setPassword,
@@ -41,6 +42,48 @@ const migrations = fileURLToPath(
 );
 const PASSWORD = 'correct horse battery staple';
 const minutes = (n: number) => n * 60 * 1000;
+
+describe('isEmailAddress', () => {
+  // The rule the check replaces; fine for short strings, quadratic on long ones.
+  const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  it('accepts what the old pattern accepted', () => {
+    const samples = [
+      'admin@example.com',
+      'a@b.c',
+      'first.last+tag@sub.example.co',
+      'admin@example.COM',
+      'a@.b.c',
+      'a@b..c',
+      'a@b.c.',
+      'a@...',
+      'nope',
+      '@example.com',
+      'a@example',
+      'a@example.',
+      'a@.c',
+      'a@@example.com',
+      'a@b@example.com',
+      'a b@example.com',
+      'a@exa mple.com',
+      'a@example.com\n',
+      '',
+    ];
+    for (const sample of samples) expect(isEmailAddress(sample), sample).toBe(pattern.test(sample));
+  });
+
+  it('refuses addresses longer than 254 characters', () => {
+    expect(isEmailAddress(`${'a'.repeat(240)}@example.com`)).toBe(true);
+    expect(isEmailAddress(`${'a'.repeat(250)}@example.com`)).toBe(false);
+  });
+
+  it('stays fast on long hostile input', () => {
+    const started = performance.now();
+    expect(isEmailAddress(`a@${'.'.repeat(200_000)} `)).toBe(false);
+    expect(isEmailAddress(`a@${'a.'.repeat(100_000)}`)).toBe(false);
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+});
 
 describe.skipIf(!baseUrl)('users module', () => {
   let pool: ReturnType<typeof createPool>;

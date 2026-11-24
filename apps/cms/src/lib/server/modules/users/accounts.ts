@@ -36,7 +36,22 @@ export class AccountError extends Error {
   }
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Longest e-mail address SMTP allows (RFC 5321). */
+const EMAIL_MAX_LENGTH = 254;
+
+/**
+ * Whether a string looks like an e-mail address: no whitespace, one `@` with text before it, and
+ * a dot inside the domain with text on both sides. Same rule as `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`,
+ * checked without that pattern because it backtracks quadratically on long inputs.
+ */
+export function isEmailAddress(value: string): boolean {
+  if (value.length > EMAIL_MAX_LENGTH || /\s/.test(value)) return false;
+  const at = value.indexOf('@');
+  if (at < 1 || at !== value.lastIndexOf('@')) return false;
+  const domain = value.slice(at + 1);
+  const dot = domain.indexOf('.', 1);
+  return dot !== -1 && dot < domain.length - 1;
+}
 const ROLE_KEY = /^[a-z][a-z0-9_-]{1,31}$/;
 
 function passwordError(problem: PasswordProblem): AccountError {
@@ -218,7 +233,7 @@ export interface NewUser {
 
 export async function createUser(db: Executor, input: NewUser): Promise<string> {
   const email = input.email.trim();
-  if (!EMAIL.test(email)) throw new AccountError('invalid_email');
+  if (!isEmailAddress(email)) throw new AccountError('invalid_email');
   const problem = checkPassword(input.password);
   if (problem) throw passwordError(problem);
   await roleKeyOf(db, input.roleId);
