@@ -22,7 +22,7 @@ const TMP_DIR = '.tmp';
 
 export function createLocalDriver(options: LocalDriverOptions): StorageDriver {
   const root = resolve(options.root);
-  const base = options.publicBaseUrl.replace(/\/+$/, '');
+  const base = withoutTrailingSlashes(options.publicBaseUrl);
 
   const pathOf = (key: string): string => {
     assertValidKey(key);
@@ -139,6 +139,16 @@ export function createLocalDriver(options: LocalDriverOptions): StorageDriver {
       return `${base}/${key}`;
     },
   };
+}
+
+/**
+ * Removes trailing slashes. A loop instead of `/\/+$/`, which backtracks quadratically on long
+ * runs of slashes that do not end the string (CodeQL js/polynomial-redos).
+ */
+export function withoutTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 0x2f) end--;
+  return value.slice(0, end);
 }
 
 function isNotFound(error: unknown): boolean {
