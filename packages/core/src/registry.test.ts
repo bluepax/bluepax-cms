@@ -1,0 +1,102 @@
+import { describe, expect, it } from 'vitest';
+import { defineModule } from './manifest.ts';
+import { ModuleRegistry, ModuleRegistryError } from './registry.ts';
+
+const site = defineModule({ id: 'site', version: '1.0.0', permissions: ['site.manage'] });
+const pages = defineModule({ id: 'pages', version: '1.0.0', dependsOn: ['site'] });
+const catalog = defineModule({ id: 'catalog', version: '1.0.0', dependsOn: ['pages'] });
+const inquiries = defineModule({ id: 'inquiries', version: '1.0.0', dependsOn: ['catalog'] });
+
+describe('ModuleRegistry.register', () => {
+  it('rejects modules that are not in the module table', () => {
+    const registry = new ModuleRegistry();
+    // @ts-expect-error unknown module id
+    expect(() => registry.register({ id: 'shop', version: '1.0.0' })).toThrow(ModuleRegistryError);
+  });
+
+  it('rejects a module registered twice', () => {
+    const registry = new ModuleRegistry().register(site);
+    expect(() => registry.register(site)).toThrow(/registered twice/);
+  });
+
+  it('rejects permissions outside the module namespace', () => {
+    const registry = new ModuleRegistry();
+    const bad = defineModule({ id: 'pages', version: '1.0.0', permissions: ['posts.edit'] });
+    expect(() => registry.register(bad)).toThrow(/pages\.<action>/);
+  });
+
+  it('rejects menu items with undeclared permissions', () => {
+    const registry = new ModuleRegistry();
+    const bad = defineModule({
+      id: 'pages',
+      version: '1.0.0',
+      permissions: ['pages.read'],
+      menu: [{ label: 'menu.pages', href: '/admin/pages', permission: 'pages.edit' }],
+    });
+    expect(() => registry.register(bad)).toThrow(/undeclared permission/);
+  });
+
+  it('rejects a core module that depends on an optional one', () => {
+    const registry = new ModuleRegistry();
+    const bad = defineModule({ id: 'pages', version: '1.0.0', dependsOn: ['catalog'] });
+    expect(() => registry.register(bad)).toThrow(/optional module "catalog"/);
+  });
+
+  it('rejects invalid versions and webhook event names', () => {
+    const registry = new ModuleRegistry();
+    expect(() => registry.register({ id: 'site', version: 'v1' })).toThrow(/invalid version/);
+    expect(() =>
+      registry.register({ id: 'site', version: '1.0.0', webhookEvents: ['Site Updated'] }),
+    ).toThrow(/invalid webhook event/);
+  });
+});
+
+describe('ModuleRegistry.order', () => {
+  it('puts dependencies first', () => {
+    const registry = new ModuleRegistry()
+      .register(inquiries)
+      .register(catalog)
+      .register(pages)
+      .register(site);
+    expect(registry.order().map((m) => m.id)).toEqual(['site', 'pages', 'catalog', 'inquiries']);
+  });
+
+  it('reports unregistered dependencies', () => {
+    const registry = new ModuleRegistry().register(pages);
+    expect(() => registry.order()).toThrow(/depends on unregistered "site"/);
+  });
+
+  it('reports cycles', () => {
+    const registry = new ModuleRegistry()
+      .register({ id: 'catalog', version: '1.0.0', dependsOn: ['inquiries'] })
+      .register({ id: 'inquiries', version: '1.0.0', dependsOn: ['catalog'] });
+    expect(() => registry.order()).toThrow(/dependency cycle/);
+  });
+});
+
+describe('ModuleRegistry.resolveEnabled', () => {
+  const registry = new ModuleRegistry()
+    .register(site)
+    .register(pages)
+    .register(catalog)
+    .register(inquiries);
+
+  it('always enables core modules', () => {
+    expect([...registry.resolveEnabled([])].sort()).toEqual(['pages', 'site']);
+  });
+
+  it('enables optional modules whose dependencies are active', () => {
+    expect(registry.resolveEnabled(['catalog', 'inquiries']).has('inquiries')).toBe(true);
+  });
+
+  it('keeps an optional module off when a dependency is off', () => {
+    expect(registry.resolveEnabled(['inquiries']).has('inquiries')).toBe(false);
+  });
+});
+
+describe('ModuleRegistry.permissions', () => {
+  it('lists the permission points of the given modules', () => {
+    const registry = new ModuleRegistry().register(site).register(pages);
+    expect(registry.permissions(['site', 'pages'])).toEqual(['site.manage']);
+  });
+});
