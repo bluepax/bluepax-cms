@@ -1,3 +1,9 @@
+# Release pipeline, see docs/spec/README.md chapter 11 ("发布流程").
+# Triggered by an annotated tag vX.Y.Z or vX.0.0-beta.N on main. Only the workflow's own
+# GITHUB_TOKEN is used: no personal token is stored in the repository.
+# Any failed step stops the pipeline before the GitHub Release is created; re-running the
+# workflow for the same tag skips npm versions that were already published.
+# TODO: build and push the image to GHCR once the Dockerfile exists (deploy/).
 name: release
 
 on:
@@ -6,35 +12,99 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.info.outputs.tag }}
+      version: ${{ steps.info.outputs.version }}
+      prerelease: ${{ steps.info.outputs.prerelease }}
+      dist-tag: ${{ steps.info.outputs.dist-tag }}
+      build: ${{ steps.info.outputs.build }}
+      codename: ${{ steps.info.outputs.codename }}
+      json: ${{ steps.info.outputs.json }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      - name: check tag
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: fetch the annotated tag and main
         run: |
-          TAG="$GITHUB_REF_NAME"
-          # Bluepax Flow: vX.Y.Z, or vX.0.0-beta.N for a new major version only
-          echo "$TAG" | grep -Eq '^v[1-9][0-9]*\.(0\.0-beta\.[1-9][0-9]*|(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$' \
-            || { echo "::error::tag $TAG does not follow Bluepax Flow"; exit 1; }
-          git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
-          [ "$(git cat-file -t "$TAG")" = tag ] \
-            || { echo "::error::tag $TAG must be annotated"; exit 1; }
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
-            || { echo "::error::tag $TAG is not on main"; exit 1; }
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          git fetch origin main
+      - name: check the tag against BluePax Flow
+        id: info
+        run: node scripts/release/info.ts "$GITHUB_REF_NAME"
 
-      - name: create release
+  ci:
+    needs: verify
+    uses: ./.github/workflows/ci.yml
+
+  npm:
+    needs: [verify, ci]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    outputs:
+      packages: ${{ steps.publish.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          registry-url: https://npm.pkg.github.com
+      - name: write the release version into the workspace packages
+        run: node scripts/release/npm.ts set-version "${{ needs.verify.outputs.version }}"
+      - name: build
+        run: pnpm -r --if-present build
+      - name: pack
+        id: pack
+        run: node scripts/release/npm.ts pack dist-npm
+      - name: attest the tarballs
+        if: steps.pack.outputs.count != '0'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist-npm/*.tgz
+      - name: publish to GitHub Packages
+        id: publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release/npm.ts publish "${{ needs.verify.outputs.dist-tag }}" dist-npm
+
+  release:
+    needs: [verify, npm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - name: fetch the annotated tag
+        run: git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+      - name: write the release notes
+        env:
+          RELEASE_INFO: ${{ needs.verify.outputs.json }}
+          PUBLISHED_PACKAGES: ${{ needs.npm.outputs.packages }}
+        run: node scripts/release/notes.ts release-notes.md
+      - name: create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.verify.outputs.tag }}
+          CODENAME: ${{ needs.verify.outputs.codename }}
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         run: |
-          TAG="$GITHUB_REF_NAME"
-          NOTE="$(git tag -l --format='%(contents:subject)' "$TAG")"
-          git log -1 --format=%b "$GITHUB_SHA" > notes.md
-          FLAGS=""
-          case "$TAG" in *-beta.*) FLAGS="--prerelease" ;; esac
-          gh release create "$TAG" --verify-tag --title "$TAG $NOTE" --notes-file notes.md $FLAGS
+          if [ "$PRERELEASE" = true ]; then FLAG=--prerelease; else FLAG=--latest; fi
+          gh release create "$TAG" --verify-tag --title "$TAG ($CODENAME)" \
+            --notes-file release-notes.md $FLAG

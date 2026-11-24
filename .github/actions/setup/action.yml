@@ -1,6 +1,12 @@
 name: setup
 description: Install Node.js, pnpm and workspace dependencies
 
+inputs:
+  registry-url:
+    description: npm registry to authenticate against with NODE_AUTH_TOKEN (for publishing)
+    required: false
+    default: ''
+
 runs:
   using: composite
   steps:
@@ -10,6 +16,8 @@ runs:
       with:
         node-version-file: .nvmrc
         cache: pnpm
+        registry-url: ${{ inputs.registry-url }}
+        scope: ${{ inputs.registry-url != '' && '@bluepax' || '' }}
 
     - name: install dependencies
       shell: bash

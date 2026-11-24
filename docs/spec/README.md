@@ -170,7 +170,7 @@ CMS 由 8 个核心模块和 6 个可选模块组成，所有实例沿用同一�
 
 ## 6. 接口契约与前台接入
 
-接口以 OpenAPI 3.1 描述（附在线调试界面），当前为 v1。SDK `@bluepax/cms-client` 与区块 Schema 包 `@bluepax/cms-blocks` 随每个版本发布到 npm 公共仓库（版本号与 CMS 一致），前台用 `pnpm add @bluepax/cms-client` 安装；本地联调用 `pnpm link`，仓库内的最小示例前台直接引用 workspace 包。其他技术栈按 OpenAPI 生成客户端。
+接口以 OpenAPI 3.1 描述（附在线调试界面），当前为 v1。SDK `@bluepax/cms-client` 与区块 Schema 包 `@bluepax/cms-blocks` 随每个版本发布到 GitHub Packages 的 npm 仓库（`https://npm.pkg.github.com`，版本号与 CMS 一致），包为公开（Public）。GitHub Packages 安装公开包同样需要鉴权：前台在 `.npmrc` 中写入 `@bluepax:registry=https://npm.pkg.github.com` 与 `//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}`，本地开发用带 `read:packages` 权限的经典个人令牌（classic PAT），前台仓库的 Actions 用其自带的 `GITHUB_TOKEN`（需先在包设置中授予该仓库读取权限），然后用 `pnpm add @bluepax/cms-client` 安装；本地联调用 `pnpm link`，仓库内的最小示例前台直接引用 workspace 包。其他技术栈按 OpenAPI 生成客户端。
 
 | 接口 | 方向 · 鉴权 | 内容 |
 | --- | --- | --- |
@@ -370,7 +370,7 @@ CMS 提供前台输出 SEO 与 GEO 所需的全部数据（`seo` 对象与 `/seo
 | 仓库 | `git@github.com:bluepax/bluepax-cms.git`（https://github.com/bluepax/bluepax-cms） |
 | 许可 | MIT，`Copyright (c) 2026 BluePax` |
 | 镜像 | `ghcr.io/bluepax/bluepax-cms` |
-| npm | `@bluepax/cms-client`、`@bluepax/cms-blocks`（公共仓库，`publishConfig.access: public`）；其余 workspace 包一律 `"private": true` |
+| npm | `@bluepax/cms-client`、`@bluepax/cms-blocks` 发布到 GitHub Packages（`publishConfig.registry: https://npm.pkg.github.com`；`repository` 指向本仓库，首次发布即自动关联；可见性 Public）；其余 workspace 包一律 `"private": true` |
 | 文档语言 | 代码、注释、提交与 Issue 用英文；README 提供英文与简体中文 |
 
 **目录**
@@ -401,7 +401,7 @@ bluepax-cms/
 - `CONTRIBUTING.md`：开发环境、分支与提交规范（第 11 节）、DCO 签名（`git commit -s`）。
 - `CODE_OF_CONDUCT.md`（Contributor Covenant 2.1）、`SECURITY.md`（私下报告渠道：GitHub Security Advisories）。
 - `CHANGELOG.md`（git-cliff 生成，`cliff.toml`）。
-- `.github/`：Issue 模板（bug / feature）、PR 模板、`CODEOWNERS`、`dependabot.yml`、`workflows/ci.yml`（lint、类型检查、单元与契约测试、E2E、许可证检查）、`release.yml`（标签触发：完整构建与检查、推送镜像、发布 npm 包、创建带版本说明的 GitHub Release，见第 11 章）、`codeql.yml`。
+- `.github/`：Issue 模板（bug / feature）、PR 模板、`CODEOWNERS`、`dependabot.yml`、`workflows/ci.yml`（lint、类型检查、单元与契约测试、E2E、许可证检查）、`release.yml`（标签触发：完整构建与检查、推送镜像、发布 npm 包到 GitHub Packages、创建带版本说明的 GitHub Release，见第 11 章）、`codeql.yml`。
 - 工程配置：`.editorconfig`、`.gitignore`、`.nvmrc`、`pnpm-workspace.yaml`、ESLint / Prettier、commitlint、`.dockerignore`。
 
 **约定**
@@ -465,11 +465,11 @@ Fix ... #121
 ```
 
 3. 打附注标签 `git tag -a vX.Y.Z -m "<codename>; <description>"`（说明用英文）并推送。
-4. 标签触发 `release.yml`：先完整构建整个项目并跑完 CI 全部检查，再构建并推送镜像到 GHCR、发布 `@bluepax/cms-client` 与 `@bluepax/cms-blocks` 到 npm（正式版 dist-tag `latest`，beta 为 `beta`）、最后创建 GitHub Release（正文见下；beta 标为 Pre-release，正式版标为 Latest）。各包 `package.json` 在仓库中保持版本 `0.0.0-development`，由 `release.yml` 按标签写入版本号后再构建与发布。npm 用 trusted publishing（OIDC，`id-token: write`）并附 provenance，镜像与 Release 用 Actions 自带的 `GITHUB_TOKEN`，仓库中不保存任何个人 Token。
+4. 标签触发 `release.yml`：先完整构建整个项目并跑完 CI 全部检查，再构建并推送镜像到 GHCR、发布 `@bluepax/cms-client` 与 `@bluepax/cms-blocks` 到 GitHub Packages（正式版 dist-tag `latest`，beta 为 `beta`）、最后创建 GitHub Release（正文见下；beta 标为 Pre-release，正式版标为 Latest）。各包 `package.json` 在仓库中保持版本 `0.0.0-development`，由 `release.yml` 按标签写入版本号后再构建与发布。npm 包、镜像与 Release 都只用 Actions 自带的 `GITHUB_TOKEN`（npm 包需 `packages: write`），仓库中不保存任何个人 Token；GitHub Packages 不支持 npm provenance，改为对发布的 npm tarball 生成 GitHub 构建来源证明（artifact attestation，需 `id-token: write` 与 `attestations: write`）。
    - Release 正文由 workflow 自动生成，依次为：
      1. 版本：`vX.Y.Z`、代号、build 号、提交 SHA。
      2. 镜像：`ghcr.io/bluepax/bluepax-cms:X.Y.Z` 及本次一并更新的标签（`X.Y`、`X`、`latest`；beta 为 `beta`），附镜像 digest。
-     3. npm：`@bluepax/cms-client@X.Y.Z` 与 `@bluepax/cms-blocks@X.Y.Z` 及 dist-tag，附 npm 页面链接；两个包每次都随 CMS 同步发版。
+     3. npm：`@bluepax/cms-client@X.Y.Z` 与 `@bluepax/cms-blocks@X.Y.Z` 及 dist-tag，附 GitHub Packages 页面链接；两个包每次都随 CMS 同步发版。
      4. 变更列表：git-cliff 生成与上一个标签之间的变更，按提交范围分为“CMS 与镜像”“npm：cms-client”“npm：cms-blocks”三组，破坏性变更置顶；某个包本次无变更时写“无变更，仅同步版本号”。
    - 失败处理：任一步失败都不创建 Release；修复后对同一标签重跑 workflow，已发布的 npm 版本自动跳过，镜像重新推送并覆盖同名标签。
 
@@ -571,6 +571,6 @@ Fix ... #121
 
 - [ ] 第一次提交 `init: init the project and add basic files`，从该提交创建 `main`，仓库默认分支设为 `dev`。
 - [ ] 按第 11 章配置 main / dev 分支保护（dev 用规则集，并把所有者账号加入绕过名单）；仓库合并方式只保留 Create a merge commit，关闭 squash 与 rebase，不开启“要求线性历史”。
-- [ ] 在 npm 组织 `bluepax` 下为 `@bluepax/cms-client`、`@bluepax/cms-blocks` 配置 trusted publisher（仓库 `bluepax/bluepax-cms`、workflow `release.yml`）；如 npm 要求包已存在才能配置，先用个人账号手动发布一次 `1.0.0-beta.1` 占位。
+- [ ] 首次发布后在组织 `bluepax` 的 Packages 中把 `@bluepax/cms-client`、`@bluepax/cms-blocks` 设为 Public（GitHub Packages 新包默认 Private），并确认已关联本仓库；需要在 Actions 中安装这两个包的前台仓库，在包设置里授予其读取权限。
 - [ ] 首次发布后把 GHCR 镜像 `ghcr.io/bluepax/bluepax-cms` 设为 Public 并关联仓库。
 - [ ] 按第 11 章规则选定 1.x 的代号，用于 `1.0.0-beta.N` 与之后的全部 1.x 版本。

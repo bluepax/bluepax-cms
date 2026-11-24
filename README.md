@@ -26,8 +26,21 @@ A `docker compose` quick start will be added with the first beta.
 ## Frontend integration
 
 Frontends install the typed SDK `@bluepax/cms-client` and the block schema package
-`@bluepax/cms-blocks`, or generate a client from the OpenAPI document. See chapter 6
-of the [specification](docs/spec/README.md).
+`@bluepax/cms-blocks` from GitHub Packages, or generate a client from the OpenAPI document.
+GitHub Packages needs a token even for public packages: locally a personal access token
+(classic) with `read:packages`, in GitHub Actions the workflow's `GITHUB_TOKEN`.
+
+```ini
+# .npmrc
+@bluepax:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+```
+
+```bash
+pnpm add @bluepax/cms-client @bluepax/cms-blocks
+```
+
+See chapter 6 of the [specification](docs/spec/README.md).
 
 ## Documentation
 
