@@ -1,8 +1,18 @@
 import type { UserConfig } from '@commitlint/types';
 
 // BluePax Flow commit rules, see docs/spec/README.md chapter 11.
+// Dependabot writes "Bump x from 1 to 2" (sentence case) and cannot be configured otherwise.
+// Its commits carry both its sign-off and its metadata block, which ordinary commits do not.
+export function isDependabotCommit(message: string): boolean {
+  return (
+    /^Signed-off-by: dependabot\[bot\] <support@github\.com>$/m.test(message) &&
+    /^updated-dependencies:$/m.test(message)
+  );
+}
+
 const config: UserConfig = {
   extends: ['@commitlint/config-conventional'],
+  ignores: [isDependabotCommit],
   rules: {
     'type-enum': [
       2,
