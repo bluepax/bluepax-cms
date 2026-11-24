@@ -151,6 +151,21 @@ describe('instance config', () => {
     ).toThrow(/site.publisher.sameAs.0/);
   });
 
+  it('fills in the storage defaults of chapter 13', () => {
+    const config = configFromPreset({ ...answers, type: 'blog' });
+    expect(config.storage).toEqual({
+      mode: 'local',
+      cacheDays: 365,
+      uploadLimitsMb: { image: 20, document: 50, video: 200 },
+    });
+    expect(() => validateConfig({ ...config, storage: { mode: 'local', cacheDays: 0 } })).toThrow(
+      /storage.cacheDays/,
+    );
+    expect(() =>
+      validateConfig({ ...config, storage: { mode: 'local', uploadLimitsMb: { video: 0 } } }),
+    ).toThrow(/storage.uploadLimitsMb.video/);
+  });
+
   it('rejects unknown keys and broken YAML', () => {
     expect(() => validateConfig({ ...valid, extra: true })).toThrow(ConfigError);
     expect(() => parseConfigYaml('site: [')).toThrow(/YAML/);

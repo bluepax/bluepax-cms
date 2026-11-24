@@ -49,3 +49,9 @@ blocks:
     - rich-text
 storage:
   mode: local
+  # Media cache lifetime in days (Cache-Control max-age), and upload limits per kind in MB.
+  cacheDays: 365
+  uploadLimitsMb:
+    image: 20
+    document: 50
+    video: 200
