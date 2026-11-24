@@ -34,7 +34,7 @@ export interface ModuleManifest {
   blocks?: readonly string[];
   /** Background job names the module registers. */
   jobs?: readonly string[];
-  /** Webhook events the module emits, as listed in chapter 6. */
+  /** Webhook events the module emits, `<object>.<event>` as listed in chapter 6 (e.g. `content.published`). */
   webhookEvents?: readonly string[];
   /** Settings and their default values. */
   settings?: Readonly<Record<string, unknown>>;

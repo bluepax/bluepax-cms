@@ -3,7 +3,8 @@ import { isCoreModule, isModuleId, type ModuleId } from './modules.ts';
 
 const NAME = '[a-z][a-z0-9_]*';
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
-const WEBHOOK_EVENT = new RegExp(`^${NAME}(\\.${NAME})+$`);
+// Webhook events are `<object>.<event>`, as in the event table of chapter 6 (e.g. `content.published`).
+const WEBHOOK_EVENT = new RegExp(`^${NAME}\\.${NAME}$`);
 
 export class ModuleRegistryError extends Error {
   override name = 'ModuleRegistryError';
@@ -108,7 +109,7 @@ function validateManifest(m: ModuleManifest): void {
   }
 
   for (const e of m.webhookEvents ?? []) {
-    if (!WEBHOOK_EVENT.test(e)) fail(`invalid webhook event "${e}"`);
+    if (!WEBHOOK_EVENT.test(e)) fail(`invalid webhook event "${e}", expected "<object>.<event>"`);
   }
 
   for (const e of m.endpoints ?? []) {
