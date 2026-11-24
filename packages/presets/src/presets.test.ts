@@ -166,6 +166,17 @@ describe('instance config', () => {
     ).toThrow(/storage.uploadLimitsMb.video/);
   });
 
+  it('trims trailing slashes of the frontend base URL quickly', () => {
+    const config = configFromPreset({ ...answers, type: 'blog' });
+    const parse = (baseUrl: string) =>
+      validateConfig({ ...config, frontend: { baseUrl } }).frontend.baseUrl;
+    expect(parse('https://www.example.com/site///')).toBe('https://www.example.com/site');
+    // `/\/+$/` needs seconds for this; the loop needs microseconds.
+    const started = performance.now();
+    expect(parse(`https://www.example.com${'/'.repeat(200_000)}x`)).toHaveLength(200_024);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
   it('rejects unknown keys and broken YAML', () => {
     expect(() => validateConfig({ ...valid, extra: true })).toThrow(ConfigError);
     expect(() => parseConfigYaml('site: [')).toThrow(/YAML/);

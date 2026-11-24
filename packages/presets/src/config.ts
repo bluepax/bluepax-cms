@@ -61,7 +61,17 @@ const timezone = z.string().refine((value) => {
 
 export const httpUrl = z.url({ protocol: /^https?$/, message: 'must be an http(s) URL' });
 
-const baseUrl = httpUrl.transform((value) => value.replace(/\/+$/, ''));
+/**
+ * Removes trailing slashes. A loop instead of `/\/+$/`, which backtracks quadratically on long
+ * runs of slashes that do not end the string (CodeQL js/polynomial-redos).
+ */
+function withoutTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 0x2f) end--;
+  return value.slice(0, end);
+}
+
+const baseUrl = httpUrl.transform(withoutTrailingSlashes);
 
 /**
  * Lowercase key of an instant messaging channel or social network, e.g. `whatsapp`.
