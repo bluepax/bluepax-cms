@@ -6,10 +6,20 @@ import type { ModuleId } from './modules.ts';
 export interface MenuItem {
   /** Message key of the label in the admin UI. */
   label: string;
-  /** Admin route, for example `/admin/pages`. */
+  /** Admin route, for example `/pages`. */
   href: string;
   /** Permission required to see the item. */
   permission: string;
+}
+
+export interface PermissionDeclaration {
+  /** `<moduleId>.<action>`, for example `pages.publish`. */
+  name: string;
+  /**
+   * `content`: content actions, granted to the default editor role when the module's
+   * "编辑" column in chapter 3 is ✓. `settings`: settings and administration, admin only.
+   */
+  kind: 'content' | 'settings';
 }
 
 export interface EndpointDeclaration {
@@ -27,7 +37,7 @@ export interface ModuleManifest {
   /** Name of the module's migrations folder in `@bluepax/db`, if it owns tables. */
   migrations?: string;
   /** Permission points, `<moduleId>.<action>`. */
-  permissions?: readonly string[];
+  permissions?: readonly PermissionDeclaration[];
   menu?: readonly MenuItem[];
   endpoints?: readonly EndpointDeclaration[];
   /** Block types the module provides. */

@@ -30,3 +30,7 @@ playwright-report/
 # release workflow output
 /dist-npm/
 /release-notes.md
+
+# Paraglide output
+apps/cms/src/lib/paraglide/
+apps/cms/project.inlang/cache/
