@@ -9,8 +9,16 @@ import { z } from 'zod';
 import { audit } from '../../audit.ts';
 import { exportInstanceConfig, updateInstanceConfig, type ConfigSection } from '../../instance.ts';
 import { decrypt, encrypt } from '../../security/crypto.ts';
+import { MediaError } from '../media/errors.ts';
+import {
+  prepareMediaUse,
+  setMediaUsages,
+  type MediaContext,
+  type UsageRef,
+} from '../media/library.ts';
 import {
   configInputError,
+  InvalidInputError,
   localized,
   mergeLocalized,
   optionalEmail,
@@ -48,6 +56,8 @@ async function saveConfig(
   section: ConfigSection,
   actor: Actor,
   change: (current: InstanceConfig) => unknown,
+  /** Further writes in the same transaction. */
+  extra?: (tx: Executor) => Promise<unknown>,
 ): Promise<InstanceConfig> {
   return db.transaction(async (tx) => {
     let result: Awaited<ReturnType<typeof updateInstanceConfig>>;
@@ -68,6 +78,7 @@ async function saveConfig(
         ip: actor.ip,
       });
     }
+    await extra?.(tx);
     return result.after;
   });
 }
@@ -80,9 +91,24 @@ export interface GeneralInput {
   brandTerms: string[];
 }
 
-/** Site type, name, time zone, publisher and brand terms. Changing the type switches nothing. */
-export function saveGeneral(db: Database, input: GeneralInput, actor: Actor) {
-  return saveConfig(db, 'site', actor, (c) => ({ ...c, site: { ...c.site, ...input } }));
+/**
+ * Site type, name, time zone, publisher and brand terms. Changing the type switches nothing.
+ * With `publisher`, the publisher's logo or avatar (site data, docs/adr/0008) is saved in the
+ * same transaction; a media ID or null.
+ */
+export async function saveGeneral(
+  db: Database,
+  input: GeneralInput,
+  actor: Actor,
+  publisher?: { media: MediaContext; image: string | null },
+) {
+  let save: ((tx: Executor) => Promise<unknown>) | undefined;
+  if (publisher) {
+    const value = parseInput(siteData['site.publisher'], { image: publisher.image });
+    const refs = await prepareRefs(publisher.media, 'site.publisher', value);
+    save = (tx) => writeSiteData(tx, 'site.publisher', value, actor, refs);
+  }
+  return saveConfig(db, 'site', actor, (c) => ({ ...c, site: { ...c.site, ...input } }), save);
 }
 
 export interface InstantMessagingInput {
@@ -128,6 +154,9 @@ export function saveLanguages(db: Database, input: LanguagesInput, actor: Actor)
 // ---------------------------------------------------------------------------------------------
 // Site data, entered in the admin only
 
+/** A media item (its ID) or none; the form sends an empty string for none. */
+const mediaRef = z.preprocess((v) => (v === '' ? null : v), z.uuid().nullable());
+
 const siteData = {
   'site.contact': z.strictObject({ email: optionalEmail, phone }),
   'site.social': z.strictObject({
@@ -135,7 +164,10 @@ const siteData = {
   }),
   /** Footer text such as the copyright line; footer links are the `footer` menu. */
   'site.footer': z.strictObject({ text: localized(1000) }),
-  /** Logo and site icon are added with the media module. */
+  /**
+   * Logo, site icon (a square PNG; favicon, Apple Touch and PWA icons are derived from it) and
+   * theme-color. Images are media IDs, recorded as media usages (docs/adr/0008).
+   */
   'site.branding': z.strictObject({
     themeColor: z.union([
       z.literal(''),
@@ -144,8 +176,49 @@ const siteData = {
         .regex(/^#[0-9a-fA-F]{6}$/)
         .transform((v) => v.toLowerCase()),
     ]),
+    logo: mediaRef,
+    icon: mediaRef,
   }),
+  /** The publisher's logo (Organization) or avatar (Person); the rest is configuration. */
+  'site.publisher': z.strictObject({ image: mediaRef }),
 } as const;
+
+/** Media fields of the site data: what each needs from the file. */
+type MediaField = Omit<UsageRef, 'mediaId' | 'field'>;
+const MEDIA_FIELDS: Partial<Record<SiteDataKey, Record<string, MediaField>>> = {
+  'site.branding': { logo: { kind: 'image' }, icon: { purpose: 'site_icon' } },
+  'site.publisher': { image: { kind: 'image' } },
+};
+
+/** Media usages of a site data value. */
+function mediaRefs<K extends SiteDataKey>(key: K, value: SiteData<K>): UsageRef[] {
+  const fields: Record<string, MediaField> = MEDIA_FIELDS[key] ?? {};
+  return Object.entries(fields).flatMap(([field, ref]) => {
+    const mediaId = (value as Record<string, unknown>)[field];
+    return typeof mediaId === 'string' ? [{ mediaId, field, ...ref }] : [];
+  });
+}
+
+/**
+ * Checks the media of a value and derives the files they need (before the transaction).
+ * A media item that does not fit fails the field, with the reason (e.g. `not_square_png`).
+ */
+async function prepareRefs<K extends SiteDataKey>(
+  media: MediaContext,
+  key: K,
+  value: SiteData<K>,
+): Promise<UsageRef[]> {
+  const refs = mediaRefs(key, value);
+  for (const ref of refs) {
+    try {
+      await prepareMediaUse(media, [ref]);
+    } catch (error) {
+      if (!(error instanceof MediaError)) throw error;
+      throw new InvalidInputError([ref.field], `invalid ${ref.field}: ${error.code}`, error.code);
+    }
+  }
+  return refs;
+}
 
 export type SiteDataKey = keyof typeof siteData;
 export type SiteData<K extends SiteDataKey> = z.output<(typeof siteData)[K]>;
@@ -154,7 +227,8 @@ export const SITE_DATA_DEFAULTS: { readonly [K in SiteDataKey]: SiteData<K> } = 
   'site.contact': { email: '', phone: '' },
   'site.social': { links: [] },
   'site.footer': { text: {} },
-  'site.branding': { themeColor: '' },
+  'site.branding': { themeColor: '', logo: null, icon: null },
+  'site.publisher': { image: null },
 };
 
 async function settingsValue(db: Executor, key: string): Promise<unknown> {
@@ -182,30 +256,57 @@ export async function readSiteData<K extends SiteDataKey>(
   return siteData[key].parse({ ...defaults, ...(stored as object) }) as SiteData<K>;
 }
 
+/** Writes a site data value with its audit entry and, for media fields, its media usages. */
+async function writeSiteData<K extends SiteDataKey>(
+  tx: Executor,
+  key: K,
+  value: SiteData<K>,
+  actor: Actor,
+  refs?: UsageRef[],
+): Promise<SiteData<K>> {
+  const before = await readSiteData(tx, key);
+  const fields = changedFields(before, value);
+  if (fields.length > 0) {
+    await writeSetting(tx, key, value);
+    await audit(tx, {
+      action: 'site.update',
+      actorId: actor.id,
+      targetType: 'settings',
+      targetId: key,
+      details: { [key]: fields },
+      ip: actor.ip,
+    });
+  }
+  if (refs) {
+    try {
+      await setMediaUsages(tx, { module: 'site', targetType: 'settings', targetId: key }, refs);
+    } catch (error) {
+      // Deleted between the check and the save.
+      if (error instanceof MediaError) throw new InvalidInputError(refs.map((r) => r.field));
+      throw error;
+    }
+  }
+  return value;
+}
+
 async function saveSiteData<K extends SiteDataKey>(
   db: Database,
   key: K,
   input: unknown,
   actor: Actor,
-  merge?: (before: SiteData<K>, value: SiteData<K>, languages: string[]) => SiteData<K>,
+  options: {
+    merge?: (before: SiteData<K>, value: SiteData<K>, languages: string[]) => SiteData<K>;
+    media?: MediaContext;
+  } = {},
 ): Promise<SiteData<K>> {
   const parsed = parseInput(siteData[key], input) as SiteData<K>;
+  const refs = options.media ? await prepareRefs(options.media, key, parsed) : undefined;
   return db.transaction(async (tx) => {
     const before = await readSiteData(tx, key);
-    const value = merge ? merge(before, parsed, (await contentLanguages(tx)).codes) : parsed;
-    const fields = changedFields(before, value);
-    if (fields.length > 0) {
-      await writeSetting(tx, key, value);
-      await audit(tx, {
-        action: 'site.update',
-        actorId: actor.id,
-        targetType: 'settings',
-        targetId: key,
-        details: { [key]: fields },
-        ip: actor.ip,
-      });
-    }
-    return value;
+    const value = options.merge
+      ? options.merge(before, parsed, (await contentLanguages(tx)).codes)
+      : parsed;
+    return writeSiteData(tx, key, value, actor, refs);
   });
 }
 
@@ -216,12 +317,15 @@ export const saveSocial = (db: Database, input: unknown, actor: Actor) =>
   saveSiteData(db, 'site.social', input, actor);
 
 export const saveFooter = (db: Database, input: unknown, actor: Actor) =>
-  saveSiteData(db, 'site.footer', input, actor, (before, value, languages) => ({
-    text: mergeLocalized(before.text, value.text, languages),
-  }));
+  saveSiteData(db, 'site.footer', input, actor, {
+    merge: (before, value, languages) => ({
+      text: mergeLocalized(before.text, value.text, languages),
+    }),
+  });
 
-export const saveBranding = (db: Database, input: unknown, actor: Actor) =>
-  saveSiteData(db, 'site.branding', input, actor);
+/** Logo, site icon and theme-color; the icons are derived from the site icon right away. */
+export const saveBranding = (media: MediaContext, input: unknown, actor: Actor) =>
+  saveSiteData(media.db, 'site.branding', input, actor, { media });
 
 // ---------------------------------------------------------------------------------------------
 // SMTP (chapter 8: notification mail is sent with these settings; the sender name is always

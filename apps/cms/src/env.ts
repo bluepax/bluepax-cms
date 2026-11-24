@@ -37,6 +37,11 @@ export const variables = defineEnvVars({
     description: 'Roles started by this process: web, worker or both (default web,worker)',
     schema: (value) => parseRoles(value),
   },
+  BLUEPAX_UPLOADS_DIR: {
+    description:
+      'Root folder of the local media storage (chapter 5); defaults to /data/uploads, the uploads volume',
+    schema: (value) => value || undefined,
+  },
   BLUEPAX_MIGRATIONS_DIR: {
     description:
       'Folder with the migration sets; defaults to packages/db/migrations in the repository',

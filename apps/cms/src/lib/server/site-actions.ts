@@ -27,7 +27,11 @@ export async function siteAction(
   } catch (err) {
     if (!(err instanceof InvalidInputError)) throw err;
     if (err.fields.includes('not_found')) error(404, m.error_not_found());
-    return fail(400, { failed: name, invalid: err.fields });
+    return fail(400, {
+      failed: name,
+      invalid: err.fields,
+      ...(err.reason && { reason: err.reason }),
+    });
   }
   return { saved: name };
 }

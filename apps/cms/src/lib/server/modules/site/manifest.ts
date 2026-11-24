@@ -7,6 +7,8 @@ import { SITE_DATA_DEFAULTS } from './settings.ts';
 export const siteModule = defineModule({
   id: 'site',
   version: '1.0.0',
+  // Logo, site icon and publisher logo are media items (docs/adr/0008).
+  dependsOn: ['media'],
   migrations: 'site',
   permissions: [{ name: 'site.manage', kind: 'settings' }],
   menu: [{ label: 'nav_settings', href: '/settings', permission: 'site.manage' }],

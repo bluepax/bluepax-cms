@@ -12,22 +12,26 @@ import {
   type Pool,
 } from '@bluepax/db';
 import { parseConfigYaml } from '@bluepax/presets';
+import { createLocalDriver, DEFAULT_LOCAL_ROOT, type StorageDriver } from '@bluepax/storage';
 import {
   APP_SECRET,
   BLUEPAX_CONFIG_FILE,
   BLUEPAX_MIGRATIONS_DIR,
   BLUEPAX_ROLES,
+  BLUEPAX_UPLOADS_DIR,
   DATABASE_URL,
   ENCRYPTION_KEY,
 } from '$app/env/private';
 import { initializeInstance, instanceState } from './instance.ts';
 import { log } from './log.ts';
 import { migrationSetNames, registry } from './modules.ts';
+import { UPLOADS_PATH } from './modules/media/files.ts';
 import type { Role } from './roles.ts';
 import { deriveKey, parseEncryptionKey } from './security/crypto.ts';
 
 let pool: Pool | undefined;
 let database: Database | undefined;
+let storage: StorageDriver | undefined;
 /** Becomes true once the instance is initialised and has an admin; it never turns back. */
 let ready = false;
 
@@ -40,6 +44,15 @@ export function getPool(): Pool {
 export function getDatabase(): Database {
   database ??= createDatabase(getPool());
   return database;
+}
+
+/** Local media storage (chapter 5); the primary copy of every media file. */
+export function getStorage(): StorageDriver {
+  storage ??= createLocalDriver({
+    root: BLUEPAX_UPLOADS_DIR ?? DEFAULT_LOCAL_ROOT,
+    publicBaseUrl: UPLOADS_PATH,
+  });
+  return storage;
 }
 
 export function hasRole(role: Role): boolean {
