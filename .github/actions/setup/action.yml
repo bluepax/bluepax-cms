@@ -1,0 +1,16 @@
+name: setup
+description: Install Node.js, pnpm and workspace dependencies
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
+
+    - name: install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

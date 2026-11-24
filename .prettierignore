@@ -1,0 +1,8 @@
+pnpm-lock.yaml
+CHANGELOG.md
+THIRD_PARTY_NOTICES.md
+docs/spec/
+**/.svelte-kit
+**/build
+**/dist
+**/coverage
