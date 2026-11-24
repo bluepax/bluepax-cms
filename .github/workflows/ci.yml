@@ -88,7 +88,7 @@ jobs:
           # The build number is the first-parent commit count of dev.
           fetch-depth: 0
       - uses: ./.github/actions/setup
-      - run: pnpm --filter @bluepax/cms build
+      - run: pnpm build
 
   licenses:
     runs-on: ubuntu-latest
