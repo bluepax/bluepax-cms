@@ -52,7 +52,7 @@ pnpm --filter @bluepax/db generate <set> <label>
 Git hooks (installed by `pnpm install`):
 
 - `commit-msg` checks the commit message with commitlint.
-- `pre-push` runs lint, typecheck and unit tests.
+- `pre-push` runs lint, typecheck, unit tests and the production build (`pnpm build`).
 
 ## Branches (BluePax Flow)
 
