@@ -23,8 +23,21 @@
 
 ## 前台接入
 
-前台安装类型化 SDK `@bluepax/cms-client` 与区块 Schema 包 `@bluepax/cms-blocks`，
-或按 OpenAPI 文档生成客户端。详见[设计规范](docs/spec/README.md)第 6 章。
+前台从 GitHub Packages 安装类型化 SDK `@bluepax/cms-client` 与区块 Schema 包
+`@bluepax/cms-blocks`，或按 OpenAPI 文档生成客户端。GitHub Packages 安装公开包也需要令牌：
+本地用带 `read:packages` 权限的经典个人令牌（classic PAT），GitHub Actions 中用 `GITHUB_TOKEN`。
+
+```ini
+# .npmrc
+@bluepax:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+```
+
+```bash
+pnpm add @bluepax/cms-client @bluepax/cms-blocks
+```
+
+详见[设计规范](docs/spec/README.md)第 6 章。
 
 ## 文档
 
