@@ -67,6 +67,11 @@ Git hooks (installed by `pnpm install`):
 3. Open the pull request against `dev`. It is merged with a merge commit; squash and rebase
    merges are disabled, and history is never rewritten.
 
+Hotfixes use `fix/xxx` branches too. The repository owner merges their own branches, hotfixes
+included, locally with `git merge --no-ff` and pushes `dev` directly (the owner bypasses the
+pull request rule); the `pre-push` hook replaces the CI pre-check, and CI still runs after the
+push.
+
 ## Commit messages
 
 ```
