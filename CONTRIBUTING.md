@@ -13,6 +13,8 @@ Decisions that interpret or deviate from the specification are recorded in
 apps/cms/            SvelteKit app: admin UI, all APIs and the startup entry
 packages/core/       module manifests and registry, permissions, events (private)
 packages/db/         Drizzle schema and migration sets (private)
+packages/presets/    corporate and blog presets, instance config format (private)
+examples/config/     fictional instance config files
 deploy/dev/          development database (docker compose)
 docs/spec/           the specification
 docs/adr/            architecture decision records
@@ -31,6 +33,7 @@ and Docker.
 pnpm install                                     # also installs the git hooks
 docker compose -f deploy/dev/compose.yaml up -d  # PostgreSQL for development and tests
 cp .env.example .env
+pnpm --filter @bluepax/cms seed:dev              # fictional instance + admin from .env.example
 pnpm --filter @bluepax/cms dev                   # runs pending migrations on first request
 pnpm check                                       # lint, typecheck and unit tests
 ```
