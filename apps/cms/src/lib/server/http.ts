@@ -5,13 +5,19 @@ import type { RequestEvent } from '@sveltejs/kit';
 const TOKEN_PATHS = ['/api/delivery/', '/api/inquiry/', '/api/manage/'];
 /** Paths reachable without logging in. */
 const PUBLIC_PATHS = ['/login', '/setup', '/api/health'];
+/** The local media source (chapter 5); frontends and visitors load media from here. */
+const MEDIA_PREFIX = '/uploads/';
 
 export function isTokenPath(pathname: string): boolean {
   return TOKEN_PATHS.some((p) => pathname.startsWith(p));
 }
 
+export function isMediaPath(pathname: string): boolean {
+  return pathname.startsWith(MEDIA_PREFIX);
+}
+
 export function isPublicPath(pathname: string): boolean {
-  return isTokenPath(pathname) || PUBLIC_PATHS.includes(pathname);
+  return isTokenPath(pathname) || isMediaPath(pathname) || PUBLIC_PATHS.includes(pathname);
 }
 
 /**

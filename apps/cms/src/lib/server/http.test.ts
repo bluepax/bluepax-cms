@@ -27,11 +27,14 @@ describe('isCrossSiteWrite', () => {
 });
 
 describe('isPublicPath', () => {
-  it('only opens login, setup, the health check and token APIs', () => {
+  it('only opens login, setup, the health check, media files and token APIs', () => {
     expect(isPublicPath('/login')).toBe(true);
     expect(isPublicPath('/setup')).toBe(true);
     expect(isPublicPath('/api/health')).toBe(true);
     expect(isPublicPath('/api/delivery/v1/site')).toBe(true);
+    expect(isPublicPath('/uploads/2026/11/file.webp')).toBe(true);
+    expect(isPublicPath('/uploads')).toBe(false);
+    expect(isPublicPath('/media')).toBe(false);
     expect(isPublicPath('/users')).toBe(false);
     expect(isPublicPath('/login/../users')).toBe(false);
   });

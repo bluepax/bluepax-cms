@@ -11,6 +11,11 @@ import { BLOCK_KEYS } from './blocks.ts';
 export const CONFIG_VERSION = 1;
 export const SITE_TYPES = ['corporate', 'blog'] as const;
 export const ADMIN_LOCALES = ['zh', 'en'] as const;
+/** Defaults of chapter 13: media cache 365 days; uploads 20 MB images, 50 MB documents, 200 MB videos. */
+export const DEFAULT_CACHE_DAYS = 365;
+export const DEFAULT_UPLOAD_LIMITS_MB = { image: 20, document: 50, video: 200 } as const;
+/** Upper bound for the configurable upload limits; uploads are held in memory while processed. */
+export const UPLOAD_LIMIT_MAX_MB = 1024;
 /** JSON-LD publisher: Organization (corporate default) or Person (blog default). */
 export const PUBLISHER_TYPES = ['organization', 'person'] as const;
 
@@ -86,6 +91,24 @@ const contentLanguage = z.strictObject({
   dir: z.enum(['ltr', 'rtl']).optional(),
 });
 
+/** The `storage` section (chapter 2, "存储"; chapter 5). */
+export const storageConfigSchema = z.strictObject({
+  /** R2 is added later in the admin (chapter 5); a fresh instance is local only. */
+  mode: z.literal('local'),
+  /** Media cache lifetime in days: `Cache-Control: max-age=<days × 86400>` (chapter 5). */
+  cacheDays: z.int().min(1).max(3650).default(DEFAULT_CACHE_DAYS),
+  /** Upload limits per kind of file in MB (chapter 13). */
+  uploadLimitsMb: z
+    .strictObject({
+      image: z.int().min(1).max(UPLOAD_LIMIT_MAX_MB).default(DEFAULT_UPLOAD_LIMITS_MB.image),
+      document: z.int().min(1).max(UPLOAD_LIMIT_MAX_MB).default(DEFAULT_UPLOAD_LIMITS_MB.document),
+      video: z.int().min(1).max(UPLOAD_LIMIT_MAX_MB).default(DEFAULT_UPLOAD_LIMITS_MB.video),
+    })
+    .prefault({}),
+});
+
+export type StorageConfig = z.output<typeof storageConfigSchema>;
+
 export const instanceConfigSchema = z
   .strictObject({
     version: z.literal(CONFIG_VERSION),
@@ -96,7 +119,7 @@ export const instanceConfigSchema = z
       timezone: timezone.default('UTC'),
       publisher: z.strictObject({
         type: z.enum(PUBLISHER_TYPES),
-        /** Empty means the site name. The logo or avatar is added with the media module. */
+        /** Empty means the site name. The logo or avatar is site data (docs/adr/0008). */
         name: z.string().trim().max(200).default(''),
         /** Profiles of the publisher elsewhere (JSON-LD `sameAs`). */
         sameAs: z.array(httpUrl).default([]),
@@ -117,10 +140,7 @@ export const instanceConfigSchema = z
       enabled: z.array(z.enum(OPTIONAL_MODULES)),
     }),
     blocks: z.strictObject({ available: z.array(z.enum(BLOCK_KEYS)).min(1) }),
-    storage: z.strictObject({
-      /** R2 is added later in the admin (chapter 5); a fresh instance is local only. */
-      mode: z.literal('local'),
-    }),
+    storage: storageConfigSchema,
   })
   .transform((config, ctx) => {
     const codes = config.languages.content.map((l) => l.code);

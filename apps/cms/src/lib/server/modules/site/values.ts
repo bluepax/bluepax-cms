@@ -7,10 +7,13 @@ import type { Localized } from '@bluepax/db';
 export class InvalidInputError extends Error {
   override name = 'InvalidInputError';
   readonly fields: string[];
+  /** Why the fields failed when there is more to say than "invalid", e.g. `not_square_png`. */
+  readonly reason: string | undefined;
 
-  constructor(fields: string[], message = `invalid input: ${fields.join(', ')}`) {
+  constructor(fields: string[], message = `invalid input: ${fields.join(', ')}`, reason?: string) {
     super(message);
     this.fields = [...new Set(fields)];
+    this.reason = reason;
   }
 }
 

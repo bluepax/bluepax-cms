@@ -4,6 +4,8 @@
   import * as Card from '#lib/components/ui/card/index.js';
   import { Input } from '#lib/components/ui/input/index.js';
   import { Label } from '#lib/components/ui/label/index.js';
+  import MediaPicker from '#lib/components/media-picker.svelte';
+  import { mediaErrorText } from '#lib/media.ts';
   import { m } from '#lib/paraglide/messages.js';
   import { failedFields, keepValues, selectClass, textareaClass } from '#lib/ui.ts';
   import Notice from './notice.svelte';
@@ -12,8 +14,7 @@
   let { data, form }: PageProps = $props();
   const site = $derived(data.site);
   const bad = $derived(failedFields(form, 'general'));
-  const badBranding = $derived(failedFields(form, 'branding'));
-  let themeColor = $derived(data.branding.themeColor);
+  const reason = $derived((form as { reason?: string } | null)?.reason);
 </script>
 
 <svelte:head>
@@ -106,6 +107,16 @@
             {@render hint(m.settings_publisher_name_hint())}
           </div>
         </div>
+        <MediaPicker
+          id="publisher-image"
+          name="publisher.image"
+          label={m.settings_publisher_image()}
+          hint={m.settings_publisher_image_hint()}
+          kind="image"
+          value={data.publisherImage}
+          invalid={bad('image')}
+          error={bad('image') && reason ? mediaErrorText(reason) : null}
+        />
         <div class="grid gap-2">
           <Label for="publisher-sameAs">{m.settings_publisher_same_as()}</Label>
           <textarea
@@ -119,40 +130,6 @@
           {#if bad('publisher.sameAs')}
             <p class="text-destructive text-sm">{m.settings_field_url()}</p>
           {/if}
-        </div>
-        <div><Button type="submit">{m.save()}</Button></div>
-      </Card.Content>
-    </Card.Root>
-  </form>
-
-  <form method="POST" action="?/branding" use:enhance={keepValues}>
-    <Card.Root>
-      <Card.Header>
-        <Card.Title>{m.settings_branding()}</Card.Title>
-        <Card.Description>{m.settings_branding_hint()}</Card.Description>
-      </Card.Header>
-      <Card.Content class="grid gap-4">
-        <div class="grid gap-2">
-          <Label for="themeColor">{m.settings_theme_color()}</Label>
-          <div class="flex items-center gap-3">
-            <Input
-              id="themeColor"
-              name="themeColor"
-              class="max-w-40 font-mono"
-              placeholder="#1e40af"
-              pattern={'#[0-9a-fA-F]{6}'}
-              bind:value={themeColor}
-              aria-invalid={badBranding('themeColor')}
-            />
-            <span
-              class="size-8 rounded-md border"
-              style:background-color={/^#[0-9a-fA-F]{6}$/.test(themeColor)
-                ? themeColor
-                : 'transparent'}
-              aria-hidden="true"
-            ></span>
-          </div>
-          {@render hint(m.settings_theme_color_hint())}
         </div>
         <div><Button type="submit">{m.save()}</Button></div>
       </Card.Content>

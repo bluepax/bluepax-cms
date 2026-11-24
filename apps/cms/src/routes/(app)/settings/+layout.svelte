@@ -8,6 +8,7 @@
   const links = [
     { href: '/settings', label: m.settings_general() },
     { href: '/settings/languages', label: m.settings_languages() },
+    { href: '/settings/branding', label: m.settings_branding() },
     { href: '/settings/contact', label: m.settings_contact() },
     { href: '/settings/entities', label: m.settings_entities() },
     { href: '/settings/navigation', label: m.settings_navigation() },

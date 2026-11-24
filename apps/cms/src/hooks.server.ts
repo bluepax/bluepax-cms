@@ -2,7 +2,7 @@ import { json, redirect } from '@sveltejs/kit';
 import { sequence, type Handle, type ServerInit } from '@sveltejs/kit/hooks';
 import { getTextDirection } from '#lib/paraglide/runtime.js';
 import { paraglideMiddleware } from '#lib/paraglide/server.js';
-import { isCrossSiteWrite, isPublicPath } from '#lib/server/http.ts';
+import { isCrossSiteWrite, isMediaPath, isPublicPath } from '#lib/server/http.ts';
 import { validateSession } from '#lib/server/modules/users/auth.ts';
 import { getDatabase, hasRole, isReady, startup } from '#lib/server/runtime.ts';
 import {
@@ -15,15 +15,18 @@ export const init: ServerInit = async () => {
   await startup();
 };
 
-/** Security headers on every response (chapter 9); CSP comes from vite.config.ts. */
+/**
+ * Security headers on every response (chapter 9); CSP comes from vite.config.ts. A route may
+ * set its own `X-Robots-Tag`: media files answer `noindex` exactly (chapter 5).
+ */
 const securityHeaders: Handle = async ({ event, resolve }) => {
   let response = await resolve(event);
-  const headers = {
-    'X-Robots-Tag': 'noindex, nofollow',
+  const headers: Record<string, string> = {
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'same-origin',
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   };
+  if (!response.headers.has('X-Robots-Tag')) headers['X-Robots-Tag'] = 'noindex, nofollow';
   try {
     for (const [name, value] of Object.entries(headers)) response.headers.set(name, value);
   } catch {
@@ -73,6 +76,9 @@ const setup: Handle = async ({ event, resolve }) => {
 const session: Handle = async ({ event, resolve }) => {
   event.locals.user = null;
   event.locals.sessionId = null;
+  // Media responses are public and cached for a long time: never look at or refresh the
+  // session there, so they never carry a Set-Cookie header.
+  if (isMediaPath(event.url.pathname)) return resolve(event);
   const token = event.cookies.get(SESSION_COOKIE);
   if (token) {
     const valid = await validateSession(getDatabase(), token, new Date());
