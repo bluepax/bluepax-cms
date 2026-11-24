@@ -1,0 +1,336 @@
+// Site settings (docs/spec/README.md chapter 3, `site`; docs/adr/0007).
+// Two kinds of data: sections of the instance configuration (`site`, `languages`), which the
+// config file holds too and the export writes back, and site data that is entered in the
+// admin only (contact, social links, footer, branding, SMTP), stored as `site.*` settings rows.
+import { schema, type Database, type Executor, type Localized } from '@bluepax/db';
+import { canonicalLocale, httpUrl, serviceKey, type InstanceConfig } from '@bluepax/presets';
+import { eq, sql } from 'drizzle-orm';
+import { z } from 'zod';
+import { audit } from '../../audit.ts';
+import { exportInstanceConfig, updateInstanceConfig, type ConfigSection } from '../../instance.ts';
+import { decrypt, encrypt } from '../../security/crypto.ts';
+import {
+  configInputError,
+  localized,
+  mergeLocalized,
+  optionalEmail,
+  parseInput,
+  phone,
+} from './values.ts';
+
+export interface Actor {
+  id: string;
+  ip: string | null;
+}
+
+/** Names of the top-level fields that differ, for the audit log (never the values). */
+function changedFields(before: object | null, after: object | null): string[] {
+  const a = (before ?? {}) as Record<string, unknown>;
+  const b = (after ?? {}) as Record<string, unknown>;
+  return [...new Set([...Object.keys(a), ...Object.keys(b)])]
+    .filter((key) => JSON.stringify(a[key]) !== JSON.stringify(b[key]))
+    .sort();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Configuration sections
+
+/** Content languages and the primary language, from the configuration. */
+export async function contentLanguages(
+  db: Executor,
+): Promise<{ codes: string[]; primary: string }> {
+  const { languages } = await exportInstanceConfig(db);
+  return { codes: languages.content.map((l) => l.code), primary: languages.primary };
+}
+
+async function saveConfig(
+  db: Database,
+  section: ConfigSection,
+  actor: Actor,
+  change: (current: InstanceConfig) => unknown,
+): Promise<InstanceConfig> {
+  return db.transaction(async (tx) => {
+    let result: Awaited<ReturnType<typeof updateInstanceConfig>>;
+    try {
+      result = await updateInstanceConfig(tx, change);
+    } catch (error) {
+      configInputError(error, section);
+    }
+    if (result.changed.length > 0) {
+      await audit(tx, {
+        action: 'site.update',
+        actorId: actor.id,
+        targetType: 'settings',
+        targetId: section,
+        details: Object.fromEntries(
+          result.changed.map((key) => [key, changedFields(result.before[key], result.after[key])]),
+        ),
+        ip: actor.ip,
+      });
+    }
+    return result.after;
+  });
+}
+
+export interface GeneralInput {
+  type: string;
+  name: string;
+  timezone: string;
+  publisher: { type: string; name: string; sameAs: string[] };
+  brandTerms: string[];
+}
+
+/** Site type, name, time zone, publisher and brand terms. Changing the type switches nothing. */
+export function saveGeneral(db: Database, input: GeneralInput, actor: Actor) {
+  return saveConfig(db, 'site', actor, (c) => ({ ...c, site: { ...c.site, ...input } }));
+}
+
+export interface InstantMessagingInput {
+  channel: string;
+  number: string;
+  text: Localized;
+}
+
+/** The instant messaging channel, or null to remove it. */
+export function saveInstantMessaging(
+  db: Database,
+  input: InstantMessagingInput | null,
+  actor: Actor,
+) {
+  return saveConfig(db, 'site', actor, (c) => ({ ...c, site: { ...c.site, im: input } }));
+}
+
+export interface LanguagesInput {
+  /** `dir` left out means the language's own direction. */
+  content: { code: string; dir?: 'ltr' | 'rtl' }[];
+  primary: string;
+  admin: string;
+}
+
+/**
+ * Content languages, primary language and the default admin language. Instant messaging
+ * texts of removed languages are dropped with it, since the configuration only allows texts
+ * for content languages; site data keeps them (see mergeLocalized).
+ */
+export function saveLanguages(db: Database, input: LanguagesInput, actor: Actor) {
+  return saveConfig(db, 'languages', actor, (c) => {
+    const codes = input.content.map((l) => canonicalLocale(l.code));
+    const im = c.site.im && {
+      ...c.site.im,
+      text: Object.fromEntries(
+        Object.entries(c.site.im.text).filter(([code]) => codes.includes(code)),
+      ),
+    };
+    return { ...c, languages: input, site: { ...c.site, im } };
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Site data, entered in the admin only
+
+const siteData = {
+  'site.contact': z.strictObject({ email: optionalEmail, phone }),
+  'site.social': z.strictObject({
+    links: z.array(z.strictObject({ network: serviceKey, url: httpUrl })).max(50),
+  }),
+  /** Footer text such as the copyright line; footer links are the `footer` menu. */
+  'site.footer': z.strictObject({ text: localized(1000) }),
+  /** Logo and site icon are added with the media module. */
+  'site.branding': z.strictObject({
+    themeColor: z.union([
+      z.literal(''),
+      z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/)
+        .transform((v) => v.toLowerCase()),
+    ]),
+  }),
+} as const;
+
+export type SiteDataKey = keyof typeof siteData;
+export type SiteData<K extends SiteDataKey> = z.output<(typeof siteData)[K]>;
+
+export const SITE_DATA_DEFAULTS: { readonly [K in SiteDataKey]: SiteData<K> } = {
+  'site.contact': { email: '', phone: '' },
+  'site.social': { links: [] },
+  'site.footer': { text: {} },
+  'site.branding': { themeColor: '' },
+};
+
+async function settingsValue(db: Executor, key: string): Promise<unknown> {
+  const [row] = await db
+    .select({ value: schema.settings.value })
+    .from(schema.settings)
+    .where(eq(schema.settings.key, key));
+  return row?.value;
+}
+
+async function writeSetting(db: Executor, key: string, value: unknown): Promise<void> {
+  await db
+    .insert(schema.settings)
+    .values({ key, value })
+    .onConflictDoUpdate({ target: schema.settings.key, set: { value, updatedAt: sql`now()` } });
+}
+
+export async function readSiteData<K extends SiteDataKey>(
+  db: Executor,
+  key: K,
+): Promise<SiteData<K>> {
+  const stored = await settingsValue(db, key);
+  const defaults = SITE_DATA_DEFAULTS[key];
+  if (stored === undefined) return structuredClone(defaults);
+  return siteData[key].parse({ ...defaults, ...(stored as object) }) as SiteData<K>;
+}
+
+async function saveSiteData<K extends SiteDataKey>(
+  db: Database,
+  key: K,
+  input: unknown,
+  actor: Actor,
+  merge?: (before: SiteData<K>, value: SiteData<K>, languages: string[]) => SiteData<K>,
+): Promise<SiteData<K>> {
+  const parsed = parseInput(siteData[key], input) as SiteData<K>;
+  return db.transaction(async (tx) => {
+    const before = await readSiteData(tx, key);
+    const value = merge ? merge(before, parsed, (await contentLanguages(tx)).codes) : parsed;
+    const fields = changedFields(before, value);
+    if (fields.length > 0) {
+      await writeSetting(tx, key, value);
+      await audit(tx, {
+        action: 'site.update',
+        actorId: actor.id,
+        targetType: 'settings',
+        targetId: key,
+        details: { [key]: fields },
+        ip: actor.ip,
+      });
+    }
+    return value;
+  });
+}
+
+export const saveContact = (db: Database, input: unknown, actor: Actor) =>
+  saveSiteData(db, 'site.contact', input, actor);
+
+export const saveSocial = (db: Database, input: unknown, actor: Actor) =>
+  saveSiteData(db, 'site.social', input, actor);
+
+export const saveFooter = (db: Database, input: unknown, actor: Actor) =>
+  saveSiteData(db, 'site.footer', input, actor, (before, value, languages) => ({
+    text: mergeLocalized(before.text, value.text, languages),
+  }));
+
+export const saveBranding = (db: Database, input: unknown, actor: Actor) =>
+  saveSiteData(db, 'site.branding', input, actor);
+
+// ---------------------------------------------------------------------------------------------
+// SMTP (chapter 8: notification mail is sent with these settings; the sender name is always
+// "BluePax CMS", chapter 1). The password is encrypted with ENCRYPTION_KEY and never shown.
+
+const SMTP_KEY = 'site.smtp';
+export const SMTP_SECURITY = ['starttls', 'tls', 'none'] as const;
+
+const smtpSchema = z.strictObject({
+  host: z
+    .string()
+    .trim()
+    .min(1)
+    .max(253)
+    .regex(/^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$/),
+  port: z.int().min(1).max(65535),
+  security: z.enum(SMTP_SECURITY),
+  username: z.string().trim().max(256),
+  fromAddress: z.email(),
+});
+
+export type SmtpSettings = z.output<typeof smtpSchema>;
+interface StoredSmtp extends SmtpSettings {
+  /** AES-256-GCM ciphertext, see security/crypto.ts. */
+  password: string | null;
+}
+/** What the admin UI sees: whether a password is set, never the password. */
+export interface SmtpView extends SmtpSettings {
+  hasPassword: boolean;
+}
+
+async function storedSmtp(db: Executor): Promise<StoredSmtp | null> {
+  const value = await settingsValue(db, SMTP_KEY);
+  return value ? (value as StoredSmtp) : null;
+}
+
+export async function readSmtp(db: Executor): Promise<SmtpView | null> {
+  const stored = await storedSmtp(db);
+  if (!stored) return null;
+  const { password, ...rest } = stored;
+  return { ...rest, hasPassword: password !== null };
+}
+
+/** For the mailer: the settings with the password decrypted, or null when SMTP is not set up. */
+export async function smtpCredentials(
+  db: Executor,
+  encryptionKey: Buffer,
+): Promise<(SmtpSettings & { password: string | null }) | null> {
+  const stored = await storedSmtp(db);
+  if (!stored) return null;
+  return { ...stored, password: stored.password ? decrypt(stored.password, encryptionKey) : null };
+}
+
+export interface SmtpPasswordChange {
+  /** A new password; empty or absent keeps the stored one. */
+  set?: string;
+  clear?: boolean;
+}
+
+export async function saveSmtp(
+  db: Database,
+  input: unknown,
+  password: SmtpPasswordChange,
+  encryptionKey: Buffer,
+  actor: Actor,
+): Promise<SmtpView> {
+  const settings = parseInput(smtpSchema, input);
+  return db.transaction(async (tx) => {
+    const before = await storedSmtp(tx);
+    const change = password.set ? 'set' : password.clear ? 'cleared' : 'kept';
+    const value: StoredSmtp = {
+      ...settings,
+      password:
+        change === 'set'
+          ? encrypt(password.set!, encryptionKey)
+          : change === 'cleared'
+            ? null
+            : (before?.password ?? null),
+    };
+    await writeSetting(tx, SMTP_KEY, value);
+    await audit(tx, {
+      action: 'site.update',
+      actorId: actor.id,
+      targetType: 'settings',
+      targetId: SMTP_KEY,
+      details: {
+        [SMTP_KEY]: changedFields(before && { ...before, password: undefined }, settings),
+        password: change,
+      },
+      ip: actor.ip,
+    });
+    return { ...settings, hasPassword: value.password !== null };
+  });
+}
+
+/** Removes the SMTP settings; mail is then not sent and passwords are reset by an admin. */
+export async function clearSmtp(db: Database, actor: Actor): Promise<void> {
+  await db.transaction(async (tx) => {
+    const removed = await tx
+      .delete(schema.settings)
+      .where(eq(schema.settings.key, SMTP_KEY))
+      .returning({ key: schema.settings.key });
+    if (removed.length === 0) return;
+    await audit(tx, {
+      action: 'site.smtp_clear',
+      actorId: actor.id,
+      targetType: 'settings',
+      targetId: SMTP_KEY,
+      ip: actor.ip,
+    });
+  });
+}

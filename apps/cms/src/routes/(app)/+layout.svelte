@@ -3,6 +3,7 @@
   import HouseIcon from '@lucide/svelte/icons/house';
   import InfoIcon from '@lucide/svelte/icons/info';
   import LogOutIcon from '@lucide/svelte/icons/log-out';
+  import SettingsIcon from '@lucide/svelte/icons/settings';
   import UserIcon from '@lucide/svelte/icons/user';
   import UsersIcon from '@lucide/svelte/icons/users';
   import { Button } from '#lib/components/ui/button/index.js';
@@ -14,7 +15,10 @@
   // Menu labels are message keys declared in the module manifests.
   const messages = m as unknown as Record<string, (() => string) | undefined>;
   const label = (key: string) => messages[key]?.() ?? key;
-  const icons: Record<string, typeof HouseIcon> = { '/users': UsersIcon };
+  const icons: Record<string, typeof HouseIcon> = {
+    '/settings': SettingsIcon,
+    '/users': UsersIcon,
+  };
 
   const active = (href: string) =>
     href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
