@@ -90,7 +90,8 @@ Signed-off-by: Your Name <you@example.com>
 
 CI checks every commit of a pull request and of every push to `dev` with commitlint, and runs
 lint, typecheck, unit and integration tests (against PostgreSQL), the license gate and the
-build; CodeQL runs alongside.
+build; CodeQL runs alongside. Commits made by Dependabot are exempt from the commit message rules,
+because its subject format cannot be configured.
 
 ## Developer Certificate of Origin
 
