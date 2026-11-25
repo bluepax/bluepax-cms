@@ -16,3 +16,4 @@
 | [0007](0007-site-settings.md)                   | site 模块：设置的存放与实例配置的扩展                     | 已采纳 |
 | [0008](0008-media-local-storage.md)             | media 模块（仅本地存储）：对象、衍生图、引用与站点图片    | 已采纳 |
 | [0009](0009-pages-block-pages.md)               | pages 模块：区块页的存储、区块定义、状态、首页与保留 slug | 已采纳 |
+| [0010](0010-posts-categories-tags-authors.md)   | posts 模块：文章、分类、标签与作者                        | 已采纳 |
