@@ -31,6 +31,14 @@ import {
 import { z } from 'zod';
 import { audit } from '../../audit.ts';
 import { emptySeo, seoSchema } from '../../content/seo.ts';
+import {
+  TRANSITIONS,
+  canTransition,
+  escapeLike,
+  isUuid,
+  pgError,
+  type StatusAction,
+} from '../../content/status.ts';
 import { exportInstanceConfig } from '../../instance.ts';
 import { MediaError } from '../media/errors.ts';
 import {
@@ -48,6 +56,7 @@ import {
   type BlockMediaUse,
   type BlockOffer,
 } from './blocks.ts';
+import { unknownBlockReferences } from '../posts/references.ts';
 import { PageError } from './errors.ts';
 import { checkSlug } from './slugs.ts';
 
@@ -58,20 +67,7 @@ export interface Actor {
 
 export const TITLE_MAX_LENGTH = 200;
 
-/** Status changes (chapter 3, "状态"): who may do them is checked by the caller. */
-export const STATUS_ACTIONS = ['submit', 'withdraw', 'publish', 'unpublish'] as const;
-export type StatusAction = (typeof STATUS_ACTIONS)[number];
-
-const TRANSITIONS: Record<StatusAction, { from: readonly ContentStatus[]; to: ContentStatus }> = {
-  submit: { from: ['draft', 'unpublished'], to: 'in_review' },
-  withdraw: { from: ['in_review'], to: 'draft' },
-  publish: { from: ['draft', 'in_review', 'unpublished'], to: 'published' },
-  unpublish: { from: ['published'], to: 'unpublished' },
-};
-
-export function canTransition(status: ContentStatus, action: StatusAction): boolean {
-  return TRANSITIONS[action].from.includes(status);
-}
+export { STATUS_ACTIONS, canTransition, type StatusAction } from '../../content/status.ts';
 
 /** Columns a status change writes: the status, and the time of publishing or going offline. */
 function statusFields(action: StatusAction) {
@@ -88,24 +84,6 @@ const target = (pageId: string, locale?: string) => ({
   targetId: pageId,
   ...(locale !== undefined && { locale }),
 });
-
-/** The Postgres error behind a Drizzle error, if any. */
-function pgError(error: unknown): { code?: string; constraint?: string } {
-  let current: unknown = error;
-  for (let i = 0; i < 5 && current; i++) {
-    const e = current as { code?: unknown; constraint?: unknown; cause?: unknown };
-    if (typeof e.code === 'string') {
-      return {
-        code: e.code,
-        ...(typeof e.constraint === 'string' && { constraint: e.constraint }),
-      };
-    }
-    current = e.cause;
-  }
-  return {};
-}
-
-const isUuid = (value: string) => z.uuid().safeParse(value).success;
 
 // ---------------------------------------------------------------------------------------------
 // Instance context
@@ -185,8 +163,6 @@ export interface PageFilter {
   page?: number;
   pageSize?: number;
 }
-
-const escapeLike = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 async function languageStatuses(db: Executor, ids: string[]) {
   const map = new Map<string, (LanguageStatus & { title: string })[]>();
@@ -769,6 +745,9 @@ export async function saveTranslation(
         throw new PageError('edit_conflict');
       }
       if (content.slug !== row.slug) await checkSlug(tx, locale, content.slug, pageId);
+      // Featured-posts and latest-posts blocks may only name posts and categories that exist.
+      const unknown = await unknownBlockReferences(tx, content.blocks);
+      if (unknown.length > 0) throw new PageError('invalid', { fields: unknown });
       if (options.status && !canTransition(row.status, options.status)) {
         throw new PageError('invalid_status');
       }

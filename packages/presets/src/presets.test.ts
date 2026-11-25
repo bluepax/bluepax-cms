@@ -50,6 +50,16 @@ describe('presets', () => {
     expect(config.site.publisher.type).toBe('person');
   });
 
+  it('seeds one default post category for a blog, in the primary language', () => {
+    expect(configFromPreset({ ...answers, type: 'blog' }).posts.categories).toEqual([
+      { name: { 'zh-Hans': '综合' }, slug: { 'zh-Hans': 'general' } },
+    ]);
+    expect(
+      configFromPreset({ ...answers, type: 'blog', primaryLanguage: 'en' }).posts.categories,
+    ).toEqual([{ name: { en: 'General' }, slug: { en: 'general' } }]);
+    expect(configFromPreset({ ...answers, type: 'corporate' }).posts.categories).toEqual([]);
+  });
+
   it('normalises languages, directions and the base URL', () => {
     const config = configFromPreset({ ...answers, type: 'blog' });
     expect(config.languages.content).toEqual([
@@ -187,6 +197,48 @@ describe('instance config', () => {
     expect(() => frontend(['a b'])).toThrow(/frontend.reservedSlugs.0/);
   });
 
+  it('checks the post categories against the content languages', () => {
+    const config = validateConfig({
+      ...valid,
+      posts: {
+        categories: [
+          { name: { en: 'News', ar: 'أخبار', 'zh-hans': '' }, slug: 'news' },
+          {
+            name: { 'zh-hans': '产品', en: 'Products' },
+            slug: { 'zh-hans': 'chanpin', en: 'products' },
+          },
+        ],
+      },
+    });
+    expect(config.posts.categories).toEqual([
+      { name: { en: 'News', ar: 'أخبار' }, slug: { en: 'news', ar: 'news' } },
+      {
+        name: { 'zh-Hans': '产品', en: 'Products' },
+        slug: { 'zh-Hans': 'chanpin', en: 'products' },
+      },
+    ]);
+    // Older config files have no posts section.
+    expect(validateConfig({ ...valid, posts: undefined }).posts).toEqual({ categories: [] });
+
+    const fails = (categories: unknown[], path: RegExp) =>
+      expect(() => validateConfig({ ...valid, posts: { categories } })).toThrow(path);
+    fails([{ name: { fr: 'Nouvelles' }, slug: 'news' }], /posts.categories.0.name.fr/);
+    fails([{ name: { en: '' }, slug: 'news' }], /posts.categories.0.name/);
+    fails([{ name: { en: 'News' }, slug: { ar: 'news' } }], /posts.categories.0.slug.ar/);
+    fails(
+      [{ name: { en: 'News', ar: 'أخبار' }, slug: { en: 'news' } }],
+      /posts.categories.0.slug.ar/,
+    );
+    fails([{ name: { en: 'News' }, slug: 'News' }], /posts.categories.0.slug/);
+    fails(
+      [
+        { name: { en: 'News' }, slug: 'news' },
+        { name: { en: 'More news' }, slug: 'news' },
+      ],
+      /posts.categories.1.slug.en/,
+    );
+  });
+
   it('rejects unknown keys and broken YAML', () => {
     expect(() => validateConfig({ ...valid, extra: true })).toThrow(ConfigError);
     expect(() => parseConfigYaml('site: [')).toThrow(/YAML/);
@@ -206,6 +258,7 @@ describe('example configs', () => {
       expect(config.blocks.available).toEqual(
         configFromPreset({ ...answers, type }).blocks.available,
       );
+      expect(config.posts.categories.length).toBe(1);
       // The YAML written by an export reads back to the same configuration.
       expect(parseConfigYaml(stringifyConfig(config))).toEqual(config);
     }

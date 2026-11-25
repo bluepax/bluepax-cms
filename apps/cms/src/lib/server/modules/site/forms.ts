@@ -154,13 +154,23 @@ export function locationInput(form: FormData, languages: readonly string[]): Loc
   };
 }
 
+/**
+ * A menu item. The `link` field names what the item links to: `page:<id>`, `category:<id>`,
+ * `post:<id>`, or empty for the URL field (a heading when that is empty too).
+ */
 export function navItemInput(form: FormData, languages: readonly string[]): NavItemInput {
+  const link = text(form, 'link');
+  const colon = link.indexOf(':');
+  const kind = colon > 0 ? link.slice(0, colon) : '';
+  const id = colon > 0 ? link.slice(colon + 1) : '';
   return {
     parentId: text(form, 'parentId') || null,
     label: localizedText(form, 'label', languages),
-    // A page link replaces the URL; the form offers one or the other.
-    url: text(form, 'pageId') ? '' : text(form, 'url'),
-    pageId: text(form, 'pageId') || null,
+    // A linked page, category or post replaces the URL; the form offers one or the other.
+    url: link ? '' : text(form, 'url'),
+    pageId: kind === 'page' ? id : null,
+    postCategoryId: kind === 'category' ? id : null,
+    postId: kind === 'post' ? id : null,
     newTab: checked(form, 'newTab'),
     sortOrder: integer(form, 'sortOrder'),
   };

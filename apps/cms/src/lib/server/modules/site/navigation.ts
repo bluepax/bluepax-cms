@@ -1,7 +1,6 @@
 // Navigation and footer menus (docs/spec/README.md chapters 3 and 4). Pages are flat; the
-// site hierarchy is expressed by nesting menu items. Items link to a page (its address per
-// language follows the route templates), a frontend path or a URL; links to posts come with
-// the posts module.
+// site hierarchy is expressed by nesting menu items. Items link to a page, a post category or a
+// post (their address per language follows the route templates), a frontend path or a URL.
 import { isLinkUrl } from '@bluepax/cms-blocks';
 import { schema, type Database, type Executor, type Localized } from '@bluepax/db';
 import { asc, eq, sql } from 'drizzle-orm';
@@ -34,13 +33,17 @@ const itemSchema = z
     url: z.string().trim().max(2000).refine(isNavUrl, 'must be a path, URL, mailto: or tel:'),
     /** A page instead of a URL. */
     pageId: z.uuid().nullable().default(null),
+    /** A post category instead of a URL. */
+    postCategoryId: z.uuid().nullable().default(null),
+    /** A post instead of a URL. */
+    postId: z.uuid().nullable().default(null),
     newTab: z.boolean(),
     sortOrder,
   })
-  .refine((item) => !(item.pageId && item.url), {
-    path: ['url'],
-    message: 'an item links to a page or to a URL, not both',
-  });
+  .refine(
+    (item) => [item.pageId, item.postCategoryId, item.postId, item.url].filter(Boolean).length <= 1,
+    { path: ['url'], message: 'an item links to one page, category, post or URL' },
+  );
 
 export type NavItemInput = z.input<typeof itemSchema>;
 
@@ -52,6 +55,8 @@ export interface NavItem {
   label: Localized;
   url: string;
   pageId: string | null;
+  postCategoryId: string | null;
+  postId: string | null;
   newTab: boolean;
 }
 
@@ -95,6 +100,8 @@ async function menuItems(db: Executor, menu: string): Promise<NavItem[]> {
       label: schema.navItems.label,
       url: schema.navItems.url,
       pageId: schema.navItems.pageId,
+      postCategoryId: schema.navItems.postCategoryId,
+      postId: schema.navItems.postId,
       newTab: schema.navItems.newTab,
     })
     .from(schema.navItems)
@@ -122,15 +129,28 @@ export function checkPlacement(tree: NavNode[], parentId: string | null, self?: 
   if (parentDepth + height > NAV_MAX_DEPTH) throw new InvalidInputError(['parentId']);
 }
 
-/** A linked page must exist; it is locked against deletion until the transaction ends. */
-async function requirePage(db: Executor, pageId: string | null): Promise<void> {
-  if (!pageId) return;
-  const [page] = await db
-    .select({ id: schema.pages.id })
-    .from(schema.pages)
-    .where(eq(schema.pages.id, pageId))
-    .for('key share');
-  if (!page) throw new InvalidInputError(['pageId']);
+/**
+ * A linked page, post category or post must exist; it is locked against deletion until the
+ * transaction ends.
+ */
+async function requireLinked(
+  db: Executor,
+  value: { pageId: string | null; postCategoryId: string | null; postId: string | null },
+): Promise<void> {
+  const links = [
+    { id: value.pageId, table: schema.pages, field: 'pageId' },
+    { id: value.postCategoryId, table: schema.postCategories, field: 'postCategoryId' },
+    { id: value.postId, table: schema.posts, field: 'postId' },
+  ] as const;
+  for (const link of links) {
+    if (!link.id) continue;
+    const [row] = await db
+      .select({ id: link.table.id })
+      .from(link.table)
+      .where(eq(link.table.id, link.id))
+      .for('key share');
+    if (!row) throw new InvalidInputError([link.field]);
+  }
 }
 
 function lockMenu(db: Executor, menu: string) {
@@ -148,7 +168,7 @@ export async function createNavItem(
   return db.transaction(async (tx) => {
     requireLanguage('label', value.label, (await contentLanguages(tx)).primary);
     await lockMenu(tx, menu);
-    await requirePage(tx, value.pageId);
+    await requireLinked(tx, value);
     checkPlacement(await listNav(tx, menu), value.parentId);
     const [row] = await tx
       .insert(schema.navItems)
@@ -186,7 +206,7 @@ export async function updateNavItem(
     const before = await findItem(tx, id);
     if (!before) throw new InvalidInputError(['not_found'], 'not found');
     await lockMenu(tx, before.menu);
-    await requirePage(tx, value.pageId);
+    await requireLinked(tx, value);
     const tree = await listNav(tx, before.menu);
     checkPlacement(
       tree,

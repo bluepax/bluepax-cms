@@ -20,12 +20,29 @@
   ];
   const label = (node: Node) =>
     node.label[data.primaryLanguage] ?? Object.values(node.label)[0] ?? '—';
-  type PageOption = (typeof data.pages)[number];
-  const pageTitle = (page: PageOption) =>
-    page.titles[data.primaryLanguage] ?? Object.values(page.titles)[0] ?? '—';
-  const linkedPage = (id: string | null) => data.pages.find((p) => p.id === id);
-  /** Selected page per form, so the URL field can step aside while a page is chosen. */
-  let chosenPage = $state<Record<string, string>>({});
+  const inPrimary = (texts: Record<string, string>) =>
+    texts[data.primaryLanguage] ?? Object.values(texts)[0] ?? '—';
+  /** The `link` value of an item: `page:<id>`, `category:<id>`, `post:<id>` or empty (URL). */
+  const linkOf = (node: Node | undefined) =>
+    node?.pageId
+      ? `page:${node.pageId}`
+      : node?.postCategoryId
+        ? `category:${node.postCategoryId}`
+        : node?.postId
+          ? `post:${node.postId}`
+          : '';
+  /** What an item links to, for its summary line. */
+  function linkText(node: Node): string | null {
+    const page = data.pages.find((p) => p.id === node.pageId);
+    if (page) return m.settings_nav_page_link({ title: inPrimary(page.titles) });
+    const category = data.categories.find((c) => c.id === node.postCategoryId);
+    if (category) return m.settings_nav_category_link({ title: inPrimary(category.names) });
+    const post = data.posts.find((p) => p.id === node.postId);
+    if (post) return m.settings_nav_post_link({ title: inPrimary(post.titles) });
+    return null;
+  }
+  /** Selected link per form, so the URL field can step aside while a link is chosen. */
+  let chosenLink = $state<Record<string, string>>({});
 
   /** Items that can hold `self` (or a new item) without nesting deeper than allowed. */
   function parents(menu: Menu, self?: Node): Node[] {
@@ -57,29 +74,49 @@
     maxlength={100}
     {invalid}
   />
-  {@const pageId = chosenPage[key] ?? node?.pageId ?? ''}
+  {@const link = chosenLink[key] ?? linkOf(node)}
   <div class="grid gap-2">
-    <Label for="page-{key}">{m.settings_nav_page()}</Label>
+    <Label for="link-{key}">{m.settings_nav_page()}</Label>
     <select
-      id="page-{key}"
-      name="pageId"
+      id="link-{key}"
+      name="link"
       class={selectClass}
-      value={pageId}
-      onchange={(event) => (chosenPage[key] = event.currentTarget.value)}
-      aria-invalid={invalid('pageId')}
+      value={link}
+      onchange={(event) => (chosenLink[key] = event.currentTarget.value)}
+      aria-invalid={invalid('pageId') || invalid('postCategoryId') || invalid('postId')}
     >
       <option value="">{m.settings_nav_page_none()}</option>
-      {#each data.pages as option (option.id)}
-        <option value={option.id}>
-          {pageTitle(option)}{option.isHome ? ` (${m.pages_home()})` : ''} · {Object.keys(
-            option.titles,
-          ).join(', ')}
-        </option>
-      {/each}
+      <optgroup label={m.settings_nav_group_pages()}>
+        {#each data.pages as option (option.id)}
+          <option value="page:{option.id}">
+            {inPrimary(option.titles)}{option.isHome ? ` (${m.pages_home()})` : ''} · {Object.keys(
+              option.titles,
+            ).join(', ')}
+          </option>
+        {/each}
+      </optgroup>
+      {#if data.categories.length > 0}
+        <optgroup label={m.settings_nav_group_categories()}>
+          {#each data.categories as option (option.id)}
+            <option value="category:{option.id}">
+              {inPrimary(option.names)} · {Object.keys(option.names).join(', ')}
+            </option>
+          {/each}
+        </optgroup>
+      {/if}
+      {#if data.posts.length > 0}
+        <optgroup label={m.settings_nav_group_posts()}>
+          {#each data.posts as option (option.id)}
+            <option value="post:{option.id}">
+              {inPrimary(option.titles)} · {Object.keys(option.titles).join(', ')}
+            </option>
+          {/each}
+        </optgroup>
+      {/if}
     </select>
     <p class="text-muted-foreground text-xs">{m.settings_nav_page_hint()}</p>
   </div>
-  {#if !pageId}
+  {#if !link}
     <div class="grid gap-2">
       <Label for="url-{key}">{m.settings_nav_url()}</Label>
       <Input id="url-{key}" name="url" value={node?.url ?? ''} aria-invalid={invalid('url')} />
@@ -141,11 +178,7 @@
             <summary class="cursor-pointer px-4 py-2 text-sm">
               <span class="font-medium">{label(node)}</span>
               <span class="text-muted-foreground">
-                {#if linkedPage(node.pageId)}
-                  {m.settings_nav_page_link({ title: pageTitle(linkedPage(node.pageId)!) })}
-                {:else}
-                  {node.url || m.settings_nav_heading()}
-                {/if}{node.newTab ? ' ↗' : ''}
+                {linkText(node) ?? (node.url || m.settings_nav_heading())}{node.newTab ? ' ↗' : ''}
               </span>
             </summary>
             <form

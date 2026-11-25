@@ -11,6 +11,7 @@ import { exportInstanceConfig, updateInstanceConfig, type ConfigSection } from '
 import { decrypt, encrypt } from '../../security/crypto.ts';
 import { MediaError } from '../media/errors.ts';
 import { pagesUsingSlugs } from '../pages/slugs.ts';
+import { postsUsingSlugs } from '../posts/slugs.ts';
 import {
   prepareMediaUse,
   setMediaUsages,
@@ -94,20 +95,35 @@ export interface GeneralInput {
 
 /**
  * Site type, name, time zone, publisher and brand terms. Changing the type switches nothing.
- * With `publisher`, the publisher's logo or avatar (site data, docs/adr/0008) is saved in the
- * same transaction; a media ID or null.
+ * With `publisher`, the site data of the publisher is saved in the same transaction: the logo
+ * or avatar (a media ID or null, docs/adr/0008) and the main author, who is the Person
+ * publisher (an author ID or null, docs/adr/0010).
  */
 export async function saveGeneral(
   db: Database,
   input: GeneralInput,
   actor: Actor,
-  publisher?: { media: MediaContext; image: string | null },
+  publisher?: { media: MediaContext; image: string | null; authorId?: string | null },
 ) {
   let save: ((tx: Executor) => Promise<unknown>) | undefined;
   if (publisher) {
-    const value = parseInput(siteData['site.publisher'], { image: publisher.image });
+    const value = parseInput(siteData['site.publisher'], {
+      image: publisher.image,
+      authorId: publisher.authorId ?? null,
+    });
     const refs = await prepareRefs(publisher.media, 'site.publisher', value);
-    save = (tx) => writeSiteData(tx, 'site.publisher', value, actor, refs);
+    save = async (tx) => {
+      // Serialise with deleting authors, which refuses to delete the main author.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('bluepax:site:publisher'))`);
+      if (value.authorId) {
+        const [author] = await tx
+          .select({ id: schema.authors.id })
+          .from(schema.authors)
+          .where(eq(schema.authors.id, value.authorId));
+        if (!author) throw new InvalidInputError(['publisher.authorId']);
+      }
+      return writeSiteData(tx, 'site.publisher', value, actor, refs);
+    };
   }
   return saveConfig(db, 'site', actor, (c) => ({ ...c, site: { ...c.site, ...input } }), save);
 }
@@ -142,13 +158,20 @@ export interface LanguagesInput {
 export function saveLanguages(db: Database, input: LanguagesInput, actor: Actor) {
   return saveConfig(db, 'languages', actor, (c) => {
     const codes = input.content.map((l) => canonicalLocale(l.code));
-    const im = c.site.im && {
-      ...c.site.im,
-      text: Object.fromEntries(
-        Object.entries(c.site.im.text).filter(([code]) => codes.includes(code)),
-      ),
+    const keep = <T>(values: Record<string, T>) =>
+      Object.fromEntries(Object.entries(values).filter(([code]) => codes.includes(code)));
+    const im = c.site.im && { ...c.site.im, text: keep(c.site.im.text) };
+    // The posts section lists the categories per language; its translations stay in the
+    // database and come back when the language is added again (docs/adr/0010).
+    const categories = c.posts.categories
+      .map((category) => ({ name: keep(category.name), slug: keep(category.slug) }))
+      .filter((category) => Object.keys(category.name).length > 0);
+    return {
+      ...c,
+      languages: input,
+      site: { ...c.site, im },
+      posts: { ...c.posts, categories },
     };
-    return { ...c, languages: input, site: { ...c.site, im } };
   });
 }
 
@@ -157,8 +180,8 @@ export interface FrontendInput {
 }
 
 /**
- * Reserved slugs of the frontend section (chapter 2, "前台"). A slug that a page already uses
- * cannot become reserved (`slug_in_use`, with the pages); rename the page first.
+ * Reserved slugs of the frontend section (chapter 2, "前台"). A slug that a page or post already
+ * uses cannot become reserved (`slug_in_use`, with the pages and posts); rename them first.
  */
 export function saveFrontend(db: Database, input: FrontendInput, actor: Actor) {
   return saveConfig(
@@ -169,10 +192,11 @@ export function saveFrontend(db: Database, input: FrontendInput, actor: Actor) {
     async (tx) => {
       const { frontend } = await exportInstanceConfig(tx);
       const used = await pagesUsingSlugs(tx, frontend.reservedSlugs);
-      if (used.length > 0) {
+      const posts = await postsUsingSlugs(tx, frontend.reservedSlugs);
+      if (used.length > 0 || posts.length > 0) {
         throw new InvalidInputError(
           ['reservedSlugs'],
-          `reserved slugs in use: ${used.map((u) => u.slug).join(', ')}`,
+          `reserved slugs in use: ${[...used, ...posts].map((u) => u.slug).join(', ')}`,
           'slug_in_use',
           {
             pages: used.map((u) => ({
@@ -181,6 +205,7 @@ export function saveFrontend(db: Database, input: FrontendInput, actor: Actor) {
               slug: u.slug,
               title: u.title,
             })),
+            posts,
           },
         );
       }
@@ -216,8 +241,15 @@ const siteData = {
     logo: mediaRef,
     icon: mediaRef,
   }),
-  /** The publisher's logo (Organization) or avatar (Person); the rest is configuration. */
-  'site.publisher': z.strictObject({ image: mediaRef }),
+  /**
+   * The publisher's logo (Organization) or avatar (Person), and the main author: for a Person
+   * publisher, the JSON-LD publisher is built from this author (name, avatar, sameAs, author
+   * page) when one is chosen. The rest is configuration.
+   */
+  'site.publisher': z.strictObject({
+    image: mediaRef,
+    authorId: z.preprocess((v) => (v === '' ? null : v), z.uuid().nullable()),
+  }),
 } as const;
 
 /** Media fields of the site data: what each needs from the file. */
@@ -265,7 +297,7 @@ export const SITE_DATA_DEFAULTS: { readonly [K in SiteDataKey]: SiteData<K> } = 
   'site.social': { links: [] },
   'site.footer': { text: {} },
   'site.branding': { themeColor: '', logo: null, icon: null },
-  'site.publisher': { image: null },
+  'site.publisher': { image: null, authorId: null },
 };
 
 async function settingsValue(db: Executor, key: string): Promise<unknown> {

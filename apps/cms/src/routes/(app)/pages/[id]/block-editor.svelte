@@ -15,11 +15,13 @@
   import Trash2Icon from '@lucide/svelte/icons/trash-2';
   import type { PickedMedia } from '#lib/components/media-dialog.svelte';
   import MediaPicker from '#lib/components/media-picker.svelte';
+  import PostPicker, { type PickedPost } from '#lib/components/post-picker.svelte';
   import RichTextEditor from '#lib/components/rich-text-editor.svelte';
   import { Button } from '#lib/components/ui/button/index.js';
   import { Input } from '#lib/components/ui/input/index.js';
   import { m } from '#lib/paraglide/messages.js';
   import { blockName } from '#lib/pages.ts';
+  import { labelIn } from '#lib/posts.ts';
   import { selectClass, textareaClass } from '#lib/ui.ts';
 
   // Adds, removes, orders and edits the blocks of one language (docs/spec/README.md chapter 4).
@@ -33,12 +35,20 @@
     hiddenFeatures,
     dir,
     lang,
+    primary,
+    postCategories,
+    posts = $bindable(),
     invalid,
     onchange,
   }: {
     blocks: EditedBlock[];
     /** Media items shown in the blocks, by ID; pickers add to it. */
     media: Record<string, PickedMedia>;
+    primary: string;
+    /** Post categories with their names, for the featured-posts and latest-posts blocks. */
+    postCategories: { id: string; names: Record<string, string> }[];
+    /** Posts shown in featured-posts blocks, by ID; the post picker adds to it. */
+    posts: Record<string, PickedPost>;
     offered: string[];
     /** Data of a new block per type. */
     templates: Record<string, unknown>;
@@ -234,6 +244,27 @@
     }}
     onmedia={(item) => (media[item.id] = item)}
   />
+{/snippet}
+
+{#snippet categoryField(owner: Record<string, unknown>, path: string, hint: string)}
+  <label class="grid gap-1 text-sm">
+    <span class="font-medium">{m.posts_category()}</span>
+    <select
+      class={selectClass}
+      value={owner.categoryId ?? ''}
+      onchange={(event) => {
+        owner.categoryId = event.currentTarget.value || null;
+        onchange();
+      }}
+      aria-invalid={invalid(path)}
+    >
+      <option value="">{m.posts_category_all()}</option>
+      {#each postCategories as category (category.id)}
+        <option value={category.id}>{labelIn(category.names, lang, primary)}</option>
+      {/each}
+    </select>
+    <span class="text-muted-foreground text-xs">{hint}</span>
+  </label>
 {/snippet}
 
 {#snippet addItem(list: unknown[], max: number, item: () => unknown)}
@@ -472,32 +503,57 @@
                 <option value="manual">{m.blocks_posts_manual()}</option>
               </select>
             </label>
-            <label class="grid gap-1 text-sm">
+            {#if d.mode === 'latest'}
+              <label class="grid gap-1 text-sm">
+                <span class="font-medium">{m.blocks_limit()}</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={12}
+                  bind:value={d.limit}
+                  oninput={onchange}
+                  aria-invalid={invalid(field(i, 'limit'))}
+                />
+              </label>
+            {/if}
+          </div>
+          {@render categoryField(
+            d,
+            field(i, 'categoryId'),
+            d.mode === 'latest'
+              ? m.blocks_posts_category_latest()
+              : m.blocks_posts_category_manual(),
+          )}
+          {#if d.mode === 'manual'}
+            <PostPicker
+              id="{uid}-posts"
+              value={d.postIds}
+              bind:known={posts}
+              locale={lang}
+              categoryId={d.categoryId}
+              max={12}
+              invalid={(path) => invalid(field(i, path))}
+              onchange={(ids) => {
+                d.postIds = ids;
+                onchange();
+              }}
+            />
+          {/if}
+        {:else if block.type === 'latest-posts'}
+          <div class="grid gap-4 sm:grid-cols-[10rem_1fr]">
+            <label class="grid content-start gap-1 text-sm">
               <span class="font-medium">{m.blocks_limit()}</span>
               <Input
                 type="number"
                 min={1}
-                max={12}
+                max={24}
                 bind:value={d.limit}
                 oninput={onchange}
                 aria-invalid={invalid(field(i, 'limit'))}
               />
             </label>
+            {@render categoryField(d, field(i, 'categoryId'), m.blocks_posts_category_latest())}
           </div>
-          <p class="text-muted-foreground text-sm">{m.blocks_posts_later()}</p>
-        {:else if block.type === 'latest-posts'}
-          <label class="grid max-w-40 gap-1 text-sm">
-            <span class="font-medium">{m.blocks_limit()}</span>
-            <Input
-              type="number"
-              min={1}
-              max={24}
-              bind:value={d.limit}
-              oninput={onchange}
-              aria-invalid={invalid(field(i, 'limit'))}
-            />
-          </label>
-          <p class="text-muted-foreground text-sm">{m.blocks_posts_later()}</p>
         {:else if block.type === 'contact-cta'}
           {@render text(d, 'title', m.blocks_title_field(), field(i, 'title'), 200)}
           {@render text(

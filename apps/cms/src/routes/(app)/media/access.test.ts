@@ -20,8 +20,8 @@ function user(key: string, permissions: string[]): AuthUser {
 
 /** The default editor role: content actions of the media module, no storage settings. */
 const editor = user('editor', ['pages.edit', 'posts.edit', 'media.edit']);
-/** A custom role without any media permission. */
-const writer = user('writer', ['posts.edit']);
+/** A custom role without any permission that edits records with media. */
+const writer = user('writer', ['posts.publish']);
 
 type Handler = (event: unknown) => unknown;
 interface RouteModule {

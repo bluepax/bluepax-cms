@@ -18,10 +18,25 @@
     slug: string;
     title: string;
   }
-  /** Pages that use a slug that was to become reserved. */
+  /** Pages and posts that use a slug that was to become reserved. */
   const inUse = $derived.by(() => {
-    const result = form as { reason?: string; details?: { pages?: InUse[] } } | null;
-    return result?.reason === 'slug_in_use' ? (result.details?.pages ?? []) : [];
+    const result = form as {
+      reason?: string;
+      details?: { pages?: InUse[]; posts?: (Omit<InUse, 'pageId'> & { postId: string })[] };
+    } | null;
+    if (result?.reason !== 'slug_in_use') return [];
+    return [
+      ...(result.details?.pages ?? []).map((p) => ({
+        ...p,
+        href: `/pages/${p.pageId}`,
+        key: `page:${p.pageId}:${p.locale}`,
+      })),
+      ...(result.details?.posts ?? []).map((p) => ({
+        ...p,
+        href: `/posts/${p.postId}`,
+        key: `post:${p.postId}:${p.locale}`,
+      })),
+    ];
   });
 </script>
 
@@ -36,12 +51,9 @@
     <Alert.Title>{m.settings_frontend_slug_in_use()}</Alert.Title>
     <Alert.Description>
       <ul class="list-disc ps-5">
-        {#each inUse as page (`${page.pageId}:${page.locale}`)}
+        {#each inUse as page (page.key)}
           <li>
-            <a
-              href="/pages/{page.pageId}?locale={encodeURIComponent(page.locale)}"
-              class="underline"
-            >
+            <a href="{page.href}?locale={encodeURIComponent(page.locale)}" class="underline">
               {page.title}
             </a>
             <span class="font-mono text-xs">· {page.locale} · {page.slug}</span>

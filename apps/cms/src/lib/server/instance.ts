@@ -15,10 +15,14 @@ import {
   type SiteType,
 } from '@bluepax/presets';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { postCategorySeeds, seedPostCategories } from './modules/posts/seeds.ts';
 import { createUser, seedDefaultRoles, type NewUser } from './modules/users/accounts.ts';
 import { ADMIN_ROLE } from './modules/users/auth.ts';
 
-/** Settings rows that hold the configuration sections (one row per section). */
+/**
+ * Settings rows that hold the configuration sections (one row per section). The `posts`
+ * section is not a row: it is read from the post categories and seeds them (docs/adr/0010).
+ */
 const SECTIONS = ['site', 'languages', 'frontend', 'blocks', 'storage'] as const;
 const INSTANCE_KEY = 'instance';
 
@@ -107,8 +111,10 @@ export async function initializeInstance(
 
     const active = options.registry.resolveEnabled(config.modules.enabled);
     await seedDefaultRoles(tx, options.registry.editorPermissions(active));
-    // Further preset seeds (block definitions, the default inquiry routing rule, the default
-    // post category) are added with the modules that own them.
+    // The post categories of the configuration; the blog preset brings a default one.
+    await seedPostCategories(tx, config.posts.categories);
+    // Further preset seeds (the default inquiry routing rule) are added with the modules that
+    // own them.
 
     return { adminId: options.admin ? await createFirstAdmin(tx, options.admin) : null };
   });
@@ -149,11 +155,14 @@ export async function exportInstanceConfig(db: Executor): Promise<InstanceConfig
     .from(schema.settings)
     .where(inArray(schema.settings.key, [...SECTIONS]));
   const sections = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  return validateConfig({
+  const config = validateConfig({
     version: CONFIG_VERSION,
     ...sections,
     modules: { enabled: await enabledOptionalModules(db) },
   });
+  // Built from the categories of the current content languages, so it is always valid.
+  const codes = config.languages.content.map((l) => l.code);
+  return { ...config, posts: { categories: await postCategorySeeds(db, codes) } };
 }
 
 export type ConfigSection = (typeof SECTIONS)[number];
@@ -162,7 +171,9 @@ export type ConfigSection = (typeof SECTIONS)[number];
  * Changes configuration sections from the admin (chapter 2: the config file and the settings
  * are the same data). The whole configuration is validated again, so a change can never
  * produce a configuration that a config file could not express. Returns the configuration
- * before and after; only the sections that changed are written.
+ * before and after; only the sections that changed are written. The `posts` section is
+ * edited on the post categories pages, not here; a change that drops content languages must
+ * drop their category names too, so the configuration stays valid.
  */
 export async function updateInstanceConfig(
   db: Executor,

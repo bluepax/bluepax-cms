@@ -107,6 +107,24 @@
             {@render hint(m.settings_publisher_name_hint())}
           </div>
         </div>
+        <div class="grid gap-2">
+          <Label for="publisher-author">{m.settings_publisher_author()}</Label>
+          <select
+            id="publisher-author"
+            name="publisher.authorId"
+            class={selectClass}
+            value={data.publisherAuthor ?? ''}
+            aria-invalid={bad('publisher.authorId')}
+          >
+            <option value="">{m.settings_publisher_author_none()}</option>
+            {#each data.authors as author (author.id)}
+              <option value={author.id}>
+                {author.names[data.primaryLanguage] ?? Object.values(author.names)[0] ?? '—'}
+              </option>
+            {/each}
+          </select>
+          {@render hint(m.settings_publisher_author_hint())}
+        </div>
         <MediaPicker
           id="publisher-image"
           name="publisher.image"

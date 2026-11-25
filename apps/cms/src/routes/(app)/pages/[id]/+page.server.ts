@@ -18,6 +18,8 @@ import {
   setHomePage,
   type StatusAction,
 } from '#lib/server/modules/pages/pages.ts';
+import { pickPosts } from '#lib/server/modules/posts/posts.ts';
+import { termOptions } from '#lib/server/modules/posts/terms.ts';
 import { can } from '#lib/server/modules/users/auth.ts';
 import {
   PAGES_DELETE,
@@ -54,8 +56,18 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
         ...(translation.seo.ogImage ? [translation.seo.ogImage] : []),
       ]
     : [];
-  const views = await getMediaViews(db, storage, mediaIds);
-  const { site } = await exportInstanceConfig(db);
+  // Posts and categories of the featured-posts and latest-posts blocks.
+  const postIds = translation
+    ? translation.blocks.flatMap((block) =>
+        block.type === 'featured-posts' ? block.data.postIds : [],
+      )
+    : [];
+  const [views, { site }, postCategories, posts] = await Promise.all([
+    getMediaViews(db, storage, mediaIds),
+    exportInstanceConfig(db),
+    termOptions(db, 'category'),
+    postIds.length > 0 ? pickPosts(db, { locale, ids: [...new Set(postIds)] }) : [],
+  ]);
   return {
     page,
     locale,
@@ -84,6 +96,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     reserved: [...setup.reserved.configured, ...setup.reserved.routes].sort(),
     frontendBaseUrl: setup.frontendBaseUrl,
     site: { name: site.name, publisher: site.publisher },
+    postCategories,
+    posts: Object.fromEntries(posts.map((p) => [p.id, p])),
     can: { publish: can(user, PAGES_PUBLISH), delete: can(user, PAGES_DELETE) },
   };
 };
