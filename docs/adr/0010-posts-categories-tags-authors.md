@@ -47,7 +47,8 @@
   - **关联账号**：一个账号最多关联一位作者（部分唯一索引），账号删除时置空；作用是新文章的默认作者。
   - **主作者**：存于站点数据 `site.publisher.authorId`（与发布者头像同处，ADR 0008），在“设置 → 站点”的发布者中
     选择，仅管理员（`site.manage`）。发布者为 Person 时，Delivery 用主作者的显示名、头像、sameAs 与作者页生成 JSON-LD
-    publisher；未指定时用配置的名称、头像与 sameAs。作者 ID 在新实例上没有意义，所以与媒体 ID 一样不进配置文件。
+    publisher；未指定时用配置的名称与 sameAs，以及后台设置的头像（规范第 2 章“发布者”，ADR 0008）。作者 ID 在新
+    实例上没有意义，所以与媒体 ID 一样不进配置文件。
     主作者不能删除。
 - **时间**：
   - `published_at` 是文章的发布日期（JSON-LD datePublished）：第一次发布时写入，之后再次发布不变；有 `posts.publish`
