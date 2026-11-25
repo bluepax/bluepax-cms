@@ -10,6 +10,7 @@ import { audit } from '../../audit.ts';
 import { exportInstanceConfig, updateInstanceConfig, type ConfigSection } from '../../instance.ts';
 import { decrypt, encrypt } from '../../security/crypto.ts';
 import { MediaError } from '../media/errors.ts';
+import { pagesUsingSlugs } from '../pages/slugs.ts';
 import {
   prepareMediaUse,
   setMediaUsages,
@@ -149,6 +150,42 @@ export function saveLanguages(db: Database, input: LanguagesInput, actor: Actor)
     };
     return { ...c, languages: input, site: { ...c.site, im } };
   });
+}
+
+export interface FrontendInput {
+  reservedSlugs: string[];
+}
+
+/**
+ * Reserved slugs of the frontend section (chapter 2, "前台"). A slug that a page already uses
+ * cannot become reserved (`slug_in_use`, with the pages); rename the page first.
+ */
+export function saveFrontend(db: Database, input: FrontendInput, actor: Actor) {
+  return saveConfig(
+    db,
+    'frontend',
+    actor,
+    (c) => ({ ...c, frontend: { ...c.frontend, reservedSlugs: input.reservedSlugs } }),
+    async (tx) => {
+      const { frontend } = await exportInstanceConfig(tx);
+      const used = await pagesUsingSlugs(tx, frontend.reservedSlugs);
+      if (used.length > 0) {
+        throw new InvalidInputError(
+          ['reservedSlugs'],
+          `reserved slugs in use: ${used.map((u) => u.slug).join(', ')}`,
+          'slug_in_use',
+          {
+            pages: used.map((u) => ({
+              pageId: u.pageId,
+              locale: u.locale,
+              slug: u.slug,
+              title: u.title,
+            })),
+          },
+        );
+      }
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------------------------

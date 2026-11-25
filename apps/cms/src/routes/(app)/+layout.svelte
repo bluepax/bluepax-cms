@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import FileTextIcon from '@lucide/svelte/icons/file-text';
   import HouseIcon from '@lucide/svelte/icons/house';
   import ImageIcon from '@lucide/svelte/icons/image';
   import InfoIcon from '@lucide/svelte/icons/info';
@@ -17,6 +18,7 @@
   const messages = m as unknown as Record<string, (() => string) | undefined>;
   const label = (key: string) => messages[key]?.() ?? key;
   const icons: Record<string, typeof HouseIcon> = {
+    '/pages': FileTextIcon,
     '/media': ImageIcon,
     '/settings': SettingsIcon,
     '/users': UsersIcon,

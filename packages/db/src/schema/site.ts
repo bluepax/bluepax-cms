@@ -13,6 +13,7 @@ import {
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
+import { pages } from './pages.ts';
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -74,7 +75,8 @@ export const entityLocations = pgTable(
 
 /**
  * Navigation and footer menus. Pages are flat; the hierarchy of the site is expressed
- * here (chapter 4). Items without a URL are headings, e.g. footer columns.
+ * here (chapter 4). An item links to a page or to a URL; items with neither are headings,
+ * e.g. footer columns.
  */
 export const navItems = pgTable(
   'nav_items',
@@ -89,11 +91,14 @@ export const navItems = pgTable(
     label: jsonb('label').$type<Localized>().notNull().default({}),
     /** Frontend path (`/en/about`), absolute URL, `mailto:` or `tel:`; empty for a heading. */
     url: text('url').notNull().default(''),
+    /** A page instead of a URL; its address per language follows the route templates. */
+    pageId: uuid('page_id').references(() => pages.id, { onDelete: 'restrict' }),
     newTab: boolean('new_tab').notNull().default(false),
     ...timestamps,
   },
   (t) => [
     index('nav_items_menu_idx').on(t.menu, t.sortOrder),
     index('nav_items_parent_idx').on(t.parentId),
+    index('nav_items_page_idx').on(t.pageId),
   ],
 );

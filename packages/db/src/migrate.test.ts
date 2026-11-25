@@ -26,7 +26,9 @@ describe.skipIf(!baseUrl)('runMigrations', () => {
   });
 
   it('only builds sets that have a journal and always starts with core', () => {
-    expect(migrationSets(root, ['pages', 'core']).map((s) => s.name)).toEqual(['core']);
+    // `posts` has no migrations yet; `pages` has.
+    expect(migrationSets(root, ['posts', 'core']).map((s) => s.name)).toEqual(['core']);
+    expect(migrationSets(root, ['pages', 'core']).map((s) => s.name)).toEqual(['core', 'pages']);
   });
 
   it('applies pending migrations once, even when two processes start together', async () => {

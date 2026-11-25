@@ -9,11 +9,19 @@ export class InvalidInputError extends Error {
   readonly fields: string[];
   /** Why the fields failed when there is more to say than "invalid", e.g. `not_square_png`. */
   readonly reason: string | undefined;
+  /** Values the message names, e.g. the slugs that are in use. */
+  readonly details: Record<string, unknown> | undefined;
 
-  constructor(fields: string[], message = `invalid input: ${fields.join(', ')}`, reason?: string) {
+  constructor(
+    fields: string[],
+    message = `invalid input: ${fields.join(', ')}`,
+    reason?: string,
+    details?: Record<string, unknown>,
+  ) {
     super(message);
     this.fields = [...new Set(fields)];
     this.reason = reason;
+    this.details = details;
   }
 }
 

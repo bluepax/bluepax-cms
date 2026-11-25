@@ -12,6 +12,7 @@
     { href: '/settings/contact', label: m.settings_contact() },
     { href: '/settings/entities', label: m.settings_entities() },
     { href: '/settings/navigation', label: m.settings_navigation() },
+    { href: '/settings/frontend', label: m.settings_frontend() },
     { href: '/settings/email', label: m.settings_email() },
     { href: '/settings/config', label: m.settings_config() },
   ];

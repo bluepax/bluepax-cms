@@ -282,14 +282,20 @@ async function purposesOf(db: Executor, mediaId: string): Promise<Set<UsagePurpo
 function checkPurpose(
   purpose: UsagePurpose,
   media: { kind: string; mimeType: string; width: number | null; height: number | null },
-  kind?: MediaKind,
+  kind?: MediaKind | readonly MediaKind[],
 ): void {
   if (purpose === 'og' && media.kind !== 'image') throw new MediaError('not_image');
   if (purpose === 'site_icon' && !isSiteIconSource(media.mimeType, media.width, media.height)) {
     throw new MediaError('not_square_png', { minSize: SITE_ICON_MIN });
   }
-  if (kind && media.kind !== kind)
-    throw new MediaError(kind === 'image' ? 'not_image' : 'kind_mismatch');
+  if (!kind) return;
+  const kinds: readonly string[] = typeof kind === 'string' ? [kind] : kind;
+  if (kinds.includes(media.kind)) return;
+  if (kinds.length === 1 && kinds[0] === 'image') throw new MediaError('not_image');
+  if (kinds.length === 2 && kinds.includes('image') && kinds.includes('video')) {
+    throw new MediaError('not_image_or_video');
+  }
+  throw new MediaError('kind_mismatch');
 }
 
 /**
@@ -738,7 +744,8 @@ export async function getMediaViews(
 export interface MediaFilter {
   /** A folder ID, null for the top level, or `all` to search every folder. */
   folderId: string | null | 'all';
-  kind?: MediaKind;
+  /** One kind, or any of several. */
+  kind?: MediaKind | readonly MediaKind[];
   mimeType?: string;
   /** Part of the display name. */
   query?: string;
@@ -760,7 +767,11 @@ export async function listMedia(
       : filter.folderId === null
         ? isNull(schema.media.folderId)
         : eq(schema.media.folderId, filter.folderId),
-    filter.kind ? eq(schema.media.kind, filter.kind) : undefined,
+    typeof filter.kind === 'string'
+      ? eq(schema.media.kind, filter.kind)
+      : filter.kind && filter.kind.length > 0
+        ? inArray(schema.media.kind, [...filter.kind])
+        : undefined,
     filter.mimeType ? eq(schema.media.mimeType, filter.mimeType) : undefined,
     query ? ilike(schema.media.name, `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`) : undefined,
   );
@@ -861,6 +872,11 @@ export interface UsageTarget {
   module: string;
   targetType: string;
   targetId: string;
+  /**
+   * For records with a version per content language (e.g. a page): only the usages of this
+   * language are replaced, and refs without a locale get it.
+   */
+  locale?: string;
 }
 
 export interface UsageRef {
@@ -869,8 +885,8 @@ export interface UsageRef {
   /** Content language of the field; leave out for fields shared by all languages. */
   locale?: string;
   purpose?: UsagePurpose;
-  /** The kind the field accepts, e.g. `image` for a logo. */
-  kind?: MediaKind;
+  /** The kind or kinds the field accepts, e.g. `image` for a logo. */
+  kind?: MediaKind | readonly MediaKind[];
 }
 
 /** Makes sure the derived files of a purpose exist for the item's current file. */
@@ -949,6 +965,25 @@ export async function setMediaUsages(
       .for('key share');
     if (found.length !== ids.length) throw new MediaError('not_found');
   }
+  await clearMediaUsages(tx, target);
+  const localeOf = (r: UsageRef) => r.locale ?? target.locale ?? '';
+  const unique = new Map(refs.map((r) => [`${r.mediaId} ${r.field} ${localeOf(r)}`, r]));
+  if (unique.size === 0) return;
+  await tx.insert(schema.mediaUsages).values(
+    [...unique.values()].map((r) => ({
+      mediaId: r.mediaId,
+      module: target.module,
+      targetType: target.targetType,
+      targetId: target.targetId,
+      field: r.field,
+      locale: localeOf(r),
+      purpose: r.purpose ?? 'default',
+    })),
+  );
+}
+
+/** Removes the usages of a record (or of one language of it), e.g. when the record is deleted. */
+export async function clearMediaUsages(tx: Executor, target: UsageTarget): Promise<void> {
   await tx
     .delete(schema.mediaUsages)
     .where(
@@ -956,19 +991,9 @@ export async function setMediaUsages(
         eq(schema.mediaUsages.module, target.module),
         eq(schema.mediaUsages.targetType, target.targetType),
         eq(schema.mediaUsages.targetId, target.targetId),
+        target.locale === undefined ? undefined : eq(schema.mediaUsages.locale, target.locale),
       ),
     );
-  const unique = new Map(refs.map((r) => [`${r.mediaId} ${r.field} ${r.locale ?? ''}`, r]));
-  if (unique.size === 0) return;
-  await tx.insert(schema.mediaUsages).values(
-    [...unique.values()].map((r) => ({
-      mediaId: r.mediaId,
-      ...target,
-      field: r.field,
-      locale: r.locale ?? '',
-      purpose: r.purpose ?? 'default',
-    })),
-  );
 }
 
 /** Media items used by a set of records, e.g. to show what a settings page points at. */

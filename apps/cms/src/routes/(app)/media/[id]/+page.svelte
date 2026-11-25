@@ -132,9 +132,10 @@
         {:else}
           <ul class="grid gap-1 text-sm">
             {#each data.usages as usage, i (i)}
-              {@const label = usage.label
+              {@const text = usage.label
                 ? (messages[usage.label]?.() ?? usage.fallback)
                 : usage.fallback}
+              {@const label = usage.name ? `${text}「${usage.name}」` : text}
               <li>
                 {#if usage.href}<a href={usage.href} class="hover:underline">
                     {label}

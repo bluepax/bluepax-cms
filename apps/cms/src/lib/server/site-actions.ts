@@ -31,6 +31,7 @@ export async function siteAction(
       failed: name,
       invalid: err.fields,
       ...(err.reason && { reason: err.reason }),
+      ...(err.details && { details: err.details }),
     });
   }
   return { saved: name };

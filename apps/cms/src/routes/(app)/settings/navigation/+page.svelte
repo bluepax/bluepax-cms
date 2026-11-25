@@ -20,6 +20,12 @@
   ];
   const label = (node: Node) =>
     node.label[data.primaryLanguage] ?? Object.values(node.label)[0] ?? '—';
+  type PageOption = (typeof data.pages)[number];
+  const pageTitle = (page: PageOption) =>
+    page.titles[data.primaryLanguage] ?? Object.values(page.titles)[0] ?? '—';
+  const linkedPage = (id: string | null) => data.pages.find((p) => p.id === id);
+  /** Selected page per form, so the URL field can step aside while a page is chosen. */
+  let chosenPage = $state<Record<string, string>>({});
 
   /** Items that can hold `self` (or a new item) without nesting deeper than allowed. */
   function parents(menu: Menu, self?: Node): Node[] {
@@ -51,11 +57,35 @@
     maxlength={100}
     {invalid}
   />
+  {@const pageId = chosenPage[key] ?? node?.pageId ?? ''}
   <div class="grid gap-2">
-    <Label for="url-{key}">{m.settings_nav_url()}</Label>
-    <Input id="url-{key}" name="url" value={node?.url ?? ''} aria-invalid={invalid('url')} />
-    <p class="text-muted-foreground text-xs">{m.settings_nav_url_hint()}</p>
+    <Label for="page-{key}">{m.settings_nav_page()}</Label>
+    <select
+      id="page-{key}"
+      name="pageId"
+      class={selectClass}
+      value={pageId}
+      onchange={(event) => (chosenPage[key] = event.currentTarget.value)}
+      aria-invalid={invalid('pageId')}
+    >
+      <option value="">{m.settings_nav_page_none()}</option>
+      {#each data.pages as option (option.id)}
+        <option value={option.id}>
+          {pageTitle(option)}{option.isHome ? ` (${m.pages_home()})` : ''} · {Object.keys(
+            option.titles,
+          ).join(', ')}
+        </option>
+      {/each}
+    </select>
+    <p class="text-muted-foreground text-xs">{m.settings_nav_page_hint()}</p>
   </div>
+  {#if !pageId}
+    <div class="grid gap-2">
+      <Label for="url-{key}">{m.settings_nav_url()}</Label>
+      <Input id="url-{key}" name="url" value={node?.url ?? ''} aria-invalid={invalid('url')} />
+      <p class="text-muted-foreground text-xs">{m.settings_nav_url_hint()}</p>
+    </div>
+  {/if}
   <div class="grid items-start gap-4 sm:grid-cols-3">
     <div class="grid gap-2 sm:col-span-2">
       <Label for="parent-{key}">{m.settings_nav_parent()}</Label>
@@ -111,7 +141,11 @@
             <summary class="cursor-pointer px-4 py-2 text-sm">
               <span class="font-medium">{label(node)}</span>
               <span class="text-muted-foreground">
-                {node.url || m.settings_nav_heading()}{node.newTab ? ' ↗' : ''}
+                {#if linkedPage(node.pageId)}
+                  {m.settings_nav_page_link({ title: pageTitle(linkedPage(node.pageId)!) })}
+                {:else}
+                  {node.url || m.settings_nav_heading()}
+                {/if}{node.newTab ? ' ↗' : ''}
               </span>
             </summary>
             <form

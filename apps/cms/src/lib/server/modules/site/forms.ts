@@ -158,7 +158,9 @@ export function navItemInput(form: FormData, languages: readonly string[]): NavI
   return {
     parentId: text(form, 'parentId') || null,
     label: localizedText(form, 'label', languages),
-    url: text(form, 'url'),
+    // A page link replaces the URL; the form offers one or the other.
+    url: text(form, 'pageId') ? '' : text(form, 'url'),
+    pageId: text(form, 'pageId') || null,
     newTab: checked(form, 'newTab'),
     sortOrder: integer(form, 'sortOrder'),
   };
