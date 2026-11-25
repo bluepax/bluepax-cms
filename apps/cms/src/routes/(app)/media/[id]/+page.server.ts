@@ -9,7 +9,7 @@ import {
   mediaContext,
   uploadedFile,
 } from '#lib/server/media-actions.ts';
-import { describeUsage } from '#lib/server/media-usages.ts';
+import { describeUsages } from '#lib/server/media-usages.ts';
 import { MediaError } from '#lib/server/modules/media/errors.ts';
 import { ACCEPT_ATTRIBUTE } from '#lib/server/modules/media/files.ts';
 import {
@@ -39,7 +39,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   const [folders, config] = await Promise.all([listAllFolders(db), exportInstanceConfig(db)]);
   return {
     media: detail,
-    usages: detail.usages.map(describeUsage),
+    usages: await describeUsages(db, detail.usages),
     path: folderPath(folders, detail.folderId),
     folders: folderOptions(folders),
     languages: config.languages.content,

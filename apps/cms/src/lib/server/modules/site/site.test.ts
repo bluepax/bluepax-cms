@@ -116,6 +116,7 @@ describe('site module (unit)', () => {
       sortOrder,
       label: { en: id },
       url: '',
+      pageId: null,
       newTab: false,
     });
     const tree = navTree([

@@ -1,6 +1,8 @@
 // Navigation and footer menus (docs/spec/README.md chapters 3 and 4). Pages are flat; the
-// site hierarchy is expressed by nesting menu items. Items link to a frontend path or URL;
-// links to pages and posts by ID come with those modules.
+// site hierarchy is expressed by nesting menu items. Items link to a page (its address per
+// language follows the route templates), a frontend path or a URL; links to posts come with
+// the posts module.
+import { isLinkUrl } from '@bluepax/cms-blocks';
 import { schema, type Database, type Executor, type Localized } from '@bluepax/db';
 import { asc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -20,25 +22,25 @@ export type NavMenu = (typeof NAV_MENUS)[number];
 /** Nesting levels, e.g. header item → submenu → item, or footer column → link. */
 export const NAV_MAX_DEPTH = 3;
 
-/** Empty (a heading), a frontend path, an http(s) URL, `mailto:` or `tel:`. */
+/** Empty (a heading or a page link), a frontend path, an http(s) URL, `mailto:` or `tel:`. */
 export function isNavUrl(value: string): boolean {
-  if (value === '') return true;
-  if (/\s/.test(value)) return false;
-  if (value.startsWith('/')) return !value.startsWith('//') && !value.startsWith('/\\');
-  try {
-    return ['http:', 'https:', 'mailto:', 'tel:'].includes(new URL(value).protocol);
-  } catch {
-    return false;
-  }
+  return value === '' || isLinkUrl(value);
 }
 
-const itemSchema = z.strictObject({
-  parentId: z.uuid().nullable(),
-  label: localized(100),
-  url: z.string().trim().max(2000).refine(isNavUrl, 'must be a path, URL, mailto: or tel:'),
-  newTab: z.boolean(),
-  sortOrder,
-});
+const itemSchema = z
+  .strictObject({
+    parentId: z.uuid().nullable(),
+    label: localized(100),
+    url: z.string().trim().max(2000).refine(isNavUrl, 'must be a path, URL, mailto: or tel:'),
+    /** A page instead of a URL. */
+    pageId: z.uuid().nullable().default(null),
+    newTab: z.boolean(),
+    sortOrder,
+  })
+  .refine((item) => !(item.pageId && item.url), {
+    path: ['url'],
+    message: 'an item links to a page or to a URL, not both',
+  });
 
 export type NavItemInput = z.input<typeof itemSchema>;
 
@@ -49,6 +51,7 @@ export interface NavItem {
   sortOrder: number;
   label: Localized;
   url: string;
+  pageId: string | null;
   newTab: boolean;
 }
 
@@ -91,6 +94,7 @@ async function menuItems(db: Executor, menu: string): Promise<NavItem[]> {
       sortOrder: schema.navItems.sortOrder,
       label: schema.navItems.label,
       url: schema.navItems.url,
+      pageId: schema.navItems.pageId,
       newTab: schema.navItems.newTab,
     })
     .from(schema.navItems)
@@ -118,6 +122,17 @@ export function checkPlacement(tree: NavNode[], parentId: string | null, self?: 
   if (parentDepth + height > NAV_MAX_DEPTH) throw new InvalidInputError(['parentId']);
 }
 
+/** A linked page must exist; it is locked against deletion until the transaction ends. */
+async function requirePage(db: Executor, pageId: string | null): Promise<void> {
+  if (!pageId) return;
+  const [page] = await db
+    .select({ id: schema.pages.id })
+    .from(schema.pages)
+    .where(eq(schema.pages.id, pageId))
+    .for('key share');
+  if (!page) throw new InvalidInputError(['pageId']);
+}
+
 function lockMenu(db: Executor, menu: string) {
   return db.execute(sql`select pg_advisory_xact_lock(hashtext(${`bluepax:nav:${menu}`}))`);
 }
@@ -133,6 +148,7 @@ export async function createNavItem(
   return db.transaction(async (tx) => {
     requireLanguage('label', value.label, (await contentLanguages(tx)).primary);
     await lockMenu(tx, menu);
+    await requirePage(tx, value.pageId);
     checkPlacement(await listNav(tx, menu), value.parentId);
     const [row] = await tx
       .insert(schema.navItems)
@@ -170,6 +186,7 @@ export async function updateNavItem(
     const before = await findItem(tx, id);
     if (!before) throw new InvalidInputError(['not_found'], 'not found');
     await lockMenu(tx, before.menu);
+    await requirePage(tx, value.pageId);
     const tree = await listNav(tx, before.menu);
     checkPlacement(
       tree,

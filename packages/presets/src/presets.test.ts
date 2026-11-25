@@ -177,6 +177,16 @@ describe('instance config', () => {
     expect(performance.now() - started).toBeLessThan(1000);
   });
 
+  it('checks, sorts and deduplicates reserved slugs', () => {
+    const config = configFromPreset({ ...answers, type: 'blog' });
+    expect(config.frontend.reservedSlugs).toEqual([]);
+    const frontend = (reservedSlugs: string[]) =>
+      validateConfig({ ...config, frontend: { ...config.frontend, reservedSlugs } }).frontend;
+    expect(frontend(['shop', 'events', 'shop']).reservedSlugs).toEqual(['events', 'shop']);
+    expect(() => frontend(['Shop'])).toThrow(/frontend.reservedSlugs.0/);
+    expect(() => frontend(['a b'])).toThrow(/frontend.reservedSlugs.0/);
+  });
+
   it('rejects unknown keys and broken YAML', () => {
     expect(() => validateConfig({ ...valid, extra: true })).toThrow(ConfigError);
     expect(() => parseConfigYaml('site: [')).toThrow(/YAML/);

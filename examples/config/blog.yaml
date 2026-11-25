@@ -19,6 +19,9 @@ languages:
   admin: en
 frontend:
   baseUrl: https://blog.example.com
+  # Paths of fixed frontend sections that pages and posts may not use as slugs. The fixed
+  # segments of the route templates (blog, authors, ...) are reserved on top.
+  reservedSlugs: [search]
 modules:
   enabled: [ai, insights, tracking]
 blocks:

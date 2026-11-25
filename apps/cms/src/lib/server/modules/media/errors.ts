@@ -18,6 +18,7 @@ export const MEDIA_ERROR_CODES = [
   'folder_cycle',
   'invalid_name',
   'not_image',
+  'not_image_or_video',
   'not_square_png',
 ] as const;
 

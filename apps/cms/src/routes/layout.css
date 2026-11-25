@@ -132,3 +132,58 @@
     @apply font-sans;
   }
 }
+
+/* Content of the rich text editor (Tiptap): semantic elements only, see rich-text-editor.svelte. */
+@layer components {
+  .rich-text > * + * {
+    margin-top: 0.75em;
+  }
+  .rich-text h2 {
+    font-size: 1.375rem;
+    font-weight: 600;
+  }
+  .rich-text h3 {
+    font-size: 1.175rem;
+    font-weight: 600;
+  }
+  .rich-text h4 {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .rich-text ul {
+    list-style: disc;
+    padding-inline-start: 1.5rem;
+  }
+  .rich-text ol {
+    list-style: decimal;
+    padding-inline-start: 1.5rem;
+  }
+  .rich-text blockquote {
+    border-inline-start: 3px solid var(--border);
+    padding-inline-start: 1rem;
+    color: var(--muted-foreground);
+  }
+  .rich-text a {
+    text-decoration: underline;
+  }
+  .rich-text table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  .rich-text th,
+  .rich-text td {
+    border: 1px solid var(--border);
+    padding: 0.25rem 0.5rem;
+    vertical-align: top;
+  }
+  .rich-text th {
+    background: var(--muted);
+    font-weight: 600;
+  }
+  .rich-text .selectedCell {
+    background: color-mix(in oklch, var(--ring) 25%, transparent);
+  }
+  .rich-text img.ProseMirror-selectednode {
+    outline: 2px solid var(--ring);
+  }
+}

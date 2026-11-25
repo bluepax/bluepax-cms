@@ -3,7 +3,7 @@
 // initialise an empty instance unattended, and an instance can export its settings back.
 // Sections for modules that are not built yet (routes, catalog, inquiries, ...) are added
 // together with those modules; unknown keys are rejected so typos never pass silently.
-import { OPTIONAL_MODULES, type OptionalModuleId } from '@bluepax/core';
+import { isSlug, OPTIONAL_MODULES, type OptionalModuleId } from '@bluepax/core';
 import { parse, stringify } from 'yaml';
 import { z } from 'zod';
 import { BLOCK_KEYS } from './blocks.ts';
@@ -72,6 +72,28 @@ function withoutTrailingSlashes(value: string): string {
 }
 
 const baseUrl = httpUrl.transform(withoutTrailingSlashes);
+
+/** A slug of routable content, see `isSlug`. */
+export const slug = z
+  .string()
+  .trim()
+  .refine(isSlug, 'must be lowercase a-z, 0-9 and single hyphens');
+
+/** The `frontend` section (chapter 2, "前台"). Route templates follow with their own item. */
+export const frontendConfigSchema = z.strictObject({
+  baseUrl,
+  /**
+   * Paths taken by fixed sections of the frontend; page and post slugs may not use them. The
+   * fixed segments of the route templates (`blog`, `authors`, ...) are reserved on top.
+   */
+  reservedSlugs: z
+    .array(slug)
+    .max(200)
+    .default([])
+    .transform((values) => unique(values).sort()),
+});
+
+export type FrontendConfig = z.output<typeof frontendConfigSchema>;
 
 /**
  * Lowercase key of an instant messaging channel or social network, e.g. `whatsapp`.
@@ -144,7 +166,7 @@ export const instanceConfigSchema = z
       /** Default admin UI language, e.g. for new accounts. */
       admin: z.enum(ADMIN_LOCALES),
     }),
-    frontend: z.strictObject({ baseUrl }),
+    frontend: frontendConfigSchema,
     modules: z.strictObject({
       /** Optional modules that are switched on; core modules are always on. */
       enabled: z.array(z.enum(OPTIONAL_MODULES)),
