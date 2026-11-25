@@ -15,6 +15,8 @@
   const site = $derived(data.site);
   const bad = $derived(failedFields(form, 'general'));
   const reason = $derived((form as { reason?: string } | null)?.reason);
+  // The image field follows the publisher type; fallbacks in spec ch.2 "发布者" (docs/adr/0008).
+  let publisherType = $derived(site.publisher.type);
 </script>
 
 <svelte:head>
@@ -89,7 +91,7 @@
               id="publisher-type"
               name="publisher.type"
               class={selectClass}
-              value={site.publisher.type}
+              bind:value={publisherType}
             >
               <option value="organization">{m.settings_publisher_organization()}</option>
               <option value="person">{m.settings_publisher_person()}</option>
@@ -128,8 +130,12 @@
         <MediaPicker
           id="publisher-image"
           name="publisher.image"
-          label={m.settings_publisher_image()}
-          hint={m.settings_publisher_image_hint()}
+          label={publisherType === 'person'
+            ? m.settings_publisher_avatar()
+            : m.settings_publisher_logo()}
+          hint={publisherType === 'person'
+            ? m.settings_publisher_avatar_hint()
+            : m.settings_publisher_logo_hint()}
           kind="image"
           value={data.publisherImage}
           invalid={bad('image')}

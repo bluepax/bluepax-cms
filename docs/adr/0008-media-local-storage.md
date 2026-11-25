@@ -56,9 +56,13 @@
   迁移给已有实例的 `editor` 角色补上 `media.edit`；新实例按清单生成。媒体选择器的列表接口 `/media/picker` 允许
   `media.edit` 或 `site.manage`。页面、表单动作与接口都先检查权限，返回 403，并有覆盖全部媒体路由的测试。
 - **站点图片**：标志与网站图标存于 `site.branding`（与主题色一起，新页“设置 → 品牌外观”），发布者的标志或头像存于
-  `site.publisher`；值是媒体 ID，并写入 `media_usages`（模块 `site`）。第 2 章把“标志或头像”列在配置文件的发布者
-  配置中，但媒体不进种子与配置文件（第 2 章“种子分层”），媒体 ID 在新实例上没有意义，所以它与 ADR 0007 的其他站点
-  数据一样只在后台设置，不写入配置文件与导出。`site` 清单因此依赖 `media`。
+  `site.publisher`（在“设置 → 站点”的发布者中选择）；值是媒体 ID，并写入 `media_usages`（模块 `site`）。媒体不进
+  种子与配置文件（第 2 章“种子分层”），媒体 ID 在新实例上没有意义，所以它与 ADR 0007 的其他站点数据一样只在后台
+  设置，不写入配置文件与导出。`site` 清单因此依赖 `media`。
+  - 第 2 章原把“标志或头像”列在配置文件的发布者配置中；2026-11-25 规范改为上述做法，并写明 JSON-LD publisher 的
+    取值规则（第 2 章“发布者”），免得同一张图上传两次：Organization 未单独设置标志时用站点标志；Person 已指定主作者
+    时用主作者的显示名、头像、sameAs 与作者页（ADR 0010）；只有 Person 未指定主作者时才用 `site.publisher` 中的头像。
+    存储方式不变，规则由 Delivery API 实现。
 - **审计**：`media.upload`、`media.update`（只记字段名）、`media.replace`（前后的类型、大小、SHA-256）、
   `media.delete`、`media.folder_create` / `folder_update` / `folder_delete`、`media.storage_update`（前后值）。
 - **Webhook**：清单声明 `media.replaced` 与 `media.origin_changed`，M2 起发送。
@@ -68,7 +72,8 @@
 - R2 驱动、镜像与回填、分发源切换、存储状态的未同步与失败数、全量校验、前台源站检查与 `storage_checks`：M3。
 - `media.replaced` / `media.origin_changed` 的发送：M2（Webhook）。
 - 衍生图改由 pg-boss 任务生成：随 worker 加入。
-- 媒体的 Delivery API 输出与绝对 URL（`GET /site` 中的标志、网站图标与发布者图片）：随 Delivery API。
+- 媒体的 Delivery API 输出与绝对 URL（`GET /site` 中的标志、网站图标与发布者图片，发布者图片按第 2 章“发布者”
+  回退）：随 Delivery API。
 - 把图片选作 OG 图：随 seo（全局默认分享图）、pages、posts 的 SEO 面板。
 - 部署：adapter-node 默认 `BODY_SIZE_LIMIT` 为 512 KB，镜像需设到不小于最大上传上限（默认 200 MB，另加表单开销），
   并考虑只对上传路由放宽；随 Dockerfile 一项处理。上传在内存中处理，所以上传上限最多 1024 MB。
