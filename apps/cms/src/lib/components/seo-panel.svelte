@@ -1,4 +1,13 @@
 <script lang="ts" module>
+  /** What the schema.org preview starts from. */
+  export interface SchemaBase {
+    name: string;
+    description?: string;
+    url: string;
+    inLanguage: string;
+    keywords?: string;
+  }
+
   export interface SeoState {
     metaTitle: string;
     metaDescription: string;
@@ -21,18 +30,20 @@
   import { m } from '#lib/paraglide/messages.js';
   import { textareaClass } from '#lib/ui.ts';
 
-  // The SEO panel of one language (docs/spec/README.md chapter 3, "SEO 面板"): slug, meta,
-  // canonical, robots, OG, target keywords and the one-sentence answer, with a search result
-  // preview and a simplified schema.org preview (docs/adr/0009). Fields are named `seo.<field>`.
+  // The SEO panel of one language (docs/spec/README.md chapter 3, "SEO 面板") of pages, posts,
+  // post categories, tags and authors: slug, meta, canonical, robots, OG, target keywords and
+  // the one-sentence answer, with a search result preview and a simplified schema.org preview
+  // (docs/adr/0009). Fields are named `seo.<field>`; the slug field is named `slug`.
   let {
     seo = $bindable(),
     slug = $bindable(),
     title,
     locale,
     dir,
-    isHome,
+    path,
     frontendBaseUrl,
-    site,
+    schema,
+    slugNote = '',
     media = $bindable(),
     reserved,
     invalid,
@@ -43,9 +54,16 @@
     title: string;
     locale: string;
     dir: 'ltr' | 'rtl';
-    isHome: boolean;
+    /** Frontend path of this language, from the route templates. */
+    path: string;
     frontendBaseUrl: string;
-    site: { name: string; publisher: { type: string; name: string } };
+    /**
+     * The schema.org preview from what search engines are shown: the record's type and fields
+     * on top of name, description, url, inLanguage and keywords.
+     */
+    schema: (shown: SchemaBase) => Record<string, unknown>;
+    /** Extra sentence for the slug hint, e.g. how the home page is addressed. */
+    slugNote?: string;
     media: Record<string, PickedMedia>;
     reserved: string[];
     invalid: (field: string) => boolean;
@@ -54,8 +72,6 @@
 
   const RECOMMENDED = { title: 60, description: 160 };
 
-  // Same rule as the route templates (`/{locale}` for the home page, `/{locale}/{slug}` else).
-  const path = $derived(isHome ? `/${locale.toLowerCase()}` : `/${locale.toLowerCase()}/${slug}`);
   const address = $derived(seo.canonical || `${frontendBaseUrl}${path}`);
   const shownTitle = $derived(seo.metaTitle || title);
   const shownDescription = $derived(seo.metaDescription || seo.summary);
@@ -66,16 +82,13 @@
     JSON.stringify(
       {
         '@context': 'https://schema.org',
-        '@type': 'WebPage',
-        name: shownTitle,
-        ...(shownDescription && { description: shownDescription }),
-        url: address,
-        inLanguage: locale,
-        ...(seo.keywords.length > 0 && { keywords: seo.keywords.join(', ') }),
-        publisher: {
-          '@type': site.publisher.type === 'person' ? 'Person' : 'Organization',
-          name: site.publisher.name || site.name,
-        },
+        ...schema({
+          name: shownTitle,
+          ...(shownDescription && { description: shownDescription }),
+          url: address,
+          inLanguage: locale,
+          ...(seo.keywords.length > 0 && { keywords: seo.keywords.join(', ') }),
+        }),
       },
       null,
       2,
@@ -118,7 +131,7 @@
     </div>
     <p id="seo-slug-hint" class="text-muted-foreground text-xs">
       {m.pages_slug_hint()}
-      {#if isHome}{m.pages_slug_home_hint({ locale: locale.toLowerCase() })}{/if}
+      {slugNote}
       {#if reserved.length > 0}{m.pages_slug_reserved_list({ slugs: reserved.join(', ') })}{/if}
     </p>
   </div>

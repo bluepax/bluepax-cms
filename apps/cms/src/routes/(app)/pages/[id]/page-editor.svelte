@@ -3,13 +3,14 @@
   import { beforeNavigate } from '$app/navigation';
   import type { SubmitFunction } from '$app/forms';
   import type { PickedMedia } from '#lib/components/media-dialog.svelte';
+  import type { PickedPost } from '#lib/components/post-picker.svelte';
   import { Button } from '#lib/components/ui/button/index.js';
   import { Input } from '#lib/components/ui/input/index.js';
   import { m } from '#lib/paraglide/messages.js';
   import { failedIn, statusClass, statusText, type Status } from '#lib/pages.ts';
   import { formatDate } from '#lib/ui.ts';
+  import SeoPanel, { type SchemaBase, type SeoState } from '#lib/components/seo-panel.svelte';
   import BlockEditor, { type EditedBlock } from './block-editor.svelte';
-  import SeoPanel, { type SeoState } from './seo-panel.svelte';
 
   // The editor of one language: title, blocks and the SEO panel in one form. The status
   // buttons save the form too, so nothing typed is lost (in M1 edits change the content
@@ -38,6 +39,9 @@
     reserved,
     frontendBaseUrl,
     site,
+    primary,
+    postCategories,
+    posts: initialPosts,
     can,
     canDeleteTranslation,
     form,
@@ -52,6 +56,9 @@
     reserved: string[];
     frontendBaseUrl: string;
     site: { name: string; publisher: { type: string; name: string } };
+    primary: string;
+    postCategories: { id: string; names: Record<string, string> }[];
+    posts: Record<string, PickedPost>;
     can: { publish: boolean; delete: boolean };
     canDeleteTranslation: boolean;
     form: unknown;
@@ -68,12 +75,28 @@
   let blocks = $state(structuredClone(translation.blocks));
   // svelte-ignore state_referenced_locally
   let media = $state({ ...initialMedia });
+  // svelte-ignore state_referenced_locally
+  let posts = $state({ ...initialPosts });
   let dirty = $state(false);
   let submitting = $state(false);
 
   const invalid = $derived(failedIn(form));
   const status = $derived(translation.status);
   const markDirty = () => (dirty = true);
+  // Same rule as the route templates (`/{locale}` for the home page, `/{locale}/{slug}` else).
+  const path = $derived(
+    isHome
+      ? `/${translation.locale.toLowerCase()}`
+      : `/${translation.locale.toLowerCase()}/${slug}`,
+  );
+  const schema = (shown: SchemaBase) => ({
+    '@type': 'WebPage',
+    ...shown,
+    publisher: {
+      '@type': site.publisher.type === 'person' ? 'Person' : 'Organization',
+      name: site.publisher.name || site.name,
+    },
+  });
   /** Action URL that keeps the language in the address after the form is handled. */
   const act = (name: string) => `?/${name}&locale=${encodeURIComponent(translation.locale)}`;
 
@@ -205,6 +228,9 @@
       <BlockEditor
         bind:blocks
         bind:media
+        bind:posts
+        {primary}
+        {postCategories}
         {offered}
         {templates}
         {hiddenFeatures}
@@ -266,9 +292,12 @@
         {title}
         locale={translation.locale}
         {dir}
-        {isHome}
+        {path}
         {frontendBaseUrl}
-        {site}
+        {schema}
+        slugNote={isHome
+          ? m.pages_slug_home_hint({ locale: translation.locale.toLowerCase() })
+          : ''}
         bind:media
         {reserved}
         {invalid}

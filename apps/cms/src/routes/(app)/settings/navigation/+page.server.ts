@@ -9,6 +9,8 @@ import {
   type NavMenu,
 } from '#lib/server/modules/site/navigation.ts';
 import { pageOptions } from '#lib/server/modules/pages/pages.ts';
+import { postOptions } from '#lib/server/modules/posts/posts.ts';
+import { termOptions } from '#lib/server/modules/posts/terms.ts';
 import { contentLanguages, readSiteData, saveFooter } from '#lib/server/modules/site/settings.ts';
 import { getDatabase } from '#lib/server/runtime.ts';
 import { SITE_PERMISSION, siteAction } from '#lib/server/site-actions.ts';
@@ -17,17 +19,21 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals }) => {
   requirePermission(locals, SITE_PERMISSION);
   const db = getDatabase();
-  const [header, footer, footerText, pages] = await Promise.all([
+  const [header, footer, footerText, pages, categories, posts] = await Promise.all([
     listNav(db, 'header'),
     listNav(db, 'footer'),
     readSiteData(db, 'site.footer'),
     pageOptions(db),
+    termOptions(db, 'category'),
+    postOptions(db),
   ]);
   return {
     menus: { header, footer },
     footerText: footerText.text,
     maxDepth: NAV_MAX_DEPTH,
     pages,
+    categories,
+    posts,
   };
 };
 

@@ -26,8 +26,8 @@ describe.skipIf(!baseUrl)('runMigrations', () => {
   });
 
   it('only builds sets that have a journal and always starts with core', () => {
-    // `posts` has no migrations yet; `pages` has.
-    expect(migrationSets(root, ['posts', 'core']).map((s) => s.name)).toEqual(['core']);
+    // `catalog` has no migrations yet (it is built in M4); `pages` has.
+    expect(migrationSets(root, ['catalog', 'core']).map((s) => s.name)).toEqual(['core']);
     expect(migrationSets(root, ['pages', 'core']).map((s) => s.name)).toEqual(['core', 'pages']);
   });
 

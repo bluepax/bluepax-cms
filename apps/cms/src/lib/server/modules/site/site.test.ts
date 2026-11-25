@@ -117,6 +117,8 @@ describe('site module (unit)', () => {
       label: { en: id },
       url: '',
       pageId: null,
+      postCategoryId: null,
+      postId: null,
       newTab: false,
     });
     const tree = navTree([

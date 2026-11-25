@@ -7,7 +7,7 @@
   import { m } from '#lib/paraglide/messages.js';
   import { failedIn, pageErrorText, type PageFormResult } from '#lib/pages.ts';
   import { keepValues, selectClass } from '#lib/ui.ts';
-  import TranslationFields from '../translation-fields.svelte';
+  import TranslationFields from '#lib/components/translation-fields.svelte';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();

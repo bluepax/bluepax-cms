@@ -14,7 +14,7 @@
     type PageFormResult,
   } from '#lib/pages.ts';
   import { keepValues, selectClass } from '#lib/ui.ts';
-  import TranslationFields from '../translation-fields.svelte';
+  import TranslationFields from '#lib/components/translation-fields.svelte';
   import PageEditor from './page-editor.svelte';
   import type { PageProps } from './$types';
 
@@ -113,6 +113,9 @@
       reserved={data.reserved}
       frontendBaseUrl={data.frontendBaseUrl}
       site={data.site}
+      primary={data.primary}
+      postCategories={data.postCategories}
+      posts={data.posts}
       can={data.can}
       canDeleteTranslation={data.page.translations.length > 1}
       {form}

@@ -12,6 +12,8 @@ import {
 
 export interface Preset {
   type: SiteType;
+  /** Seeds a default post category (chapter 2, "通用种子"). */
+  defaultPostCategory: boolean;
   optionalModules: readonly OptionalModuleId[];
   blocks: readonly BlockKey[];
   publisher: 'organization' | 'person';
@@ -22,6 +24,7 @@ export interface Preset {
 export const PRESETS: Readonly<Record<SiteType, Preset>> = {
   corporate: {
     type: 'corporate',
+    defaultPostCategory: false,
     optionalModules: ['catalog', 'inquiries', 'regions', 'tracking', 'insights', 'ai'],
     blocks: BLOCK_KEYS,
     publisher: 'organization',
@@ -29,6 +32,7 @@ export const PRESETS: Readonly<Record<SiteType, Preset>> = {
   },
   blog: {
     type: 'blog',
+    defaultPostCategory: true,
     optionalModules: ['tracking', 'insights', 'ai'],
     // Blocks 1–6, 9 and 11–13.
     blocks: BLOCK_KEYS.filter((_, i) => [1, 2, 3, 4, 5, 6, 9, 11, 12, 13].includes(i + 1)),
@@ -47,6 +51,17 @@ export interface SetupAnswers {
   frontendBaseUrl: string;
 }
 
+/** Slug of the default post category of the blog preset. */
+export const DEFAULT_POST_CATEGORY_SLUG = 'general';
+
+/**
+ * Name of the default post category in a language: a neutral word, in the primary language
+ * only; editors rename it and add the other languages in the admin.
+ */
+export function defaultPostCategoryName(locale: string): string {
+  return locale.toLowerCase().startsWith('zh') ? '综合' : 'General';
+}
+
 /** The configuration a setup wizard run produces: the preset plus the answers. */
 export function configFromPreset(answers: SetupAnswers): InstanceConfig {
   const preset = PRESETS[answers.type];
@@ -62,5 +77,15 @@ export function configFromPreset(answers: SetupAnswers): InstanceConfig {
     modules: { enabled: [...preset.optionalModules] },
     blocks: { available: [...preset.blocks] },
     storage: { mode: 'local' },
+    posts: {
+      categories: preset.defaultPostCategory
+        ? [
+            {
+              name: { [answers.primaryLanguage]: defaultPostCategoryName(answers.primaryLanguage) },
+              slug: DEFAULT_POST_CATEGORY_SLUG,
+            },
+          ]
+        : [],
+    },
   });
 }

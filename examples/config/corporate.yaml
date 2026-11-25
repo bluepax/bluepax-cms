@@ -58,3 +58,10 @@ storage:
     image: 20
     document: 50
     video: 200
+posts:
+  # Post categories the instance starts with: a name and a slug per content language (one slug
+  # may stand for all). The export writes the current categories; descriptions and SEO fields
+  # are entered in the admin.
+  categories:
+    - name: { en: News, zh-CN: 新闻 }
+      slug: news

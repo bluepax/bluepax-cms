@@ -8,7 +8,12 @@ import {
   type Database,
 } from '@bluepax/db';
 import { freshTestDatabase } from '@bluepax/db/testing';
-import { configFromPreset, parseConfigYaml, stringifyConfig } from '@bluepax/presets';
+import {
+  configFromPreset,
+  parseConfigYaml,
+  stringifyConfig,
+  validateConfig,
+} from '@bluepax/presets';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   AlreadyInitializedError,
@@ -18,6 +23,7 @@ import {
   initializeInstance,
   instanceState,
 } from './instance.ts';
+import { migrationSetNames } from './modules.ts';
 import { listRoles } from './modules/users/accounts.ts';
 
 // Integration test: needs a PostgreSQL server (TEST_DATABASE_URL).
@@ -62,7 +68,8 @@ describe.skipIf(!baseUrl)('instance initialisation', () => {
   async function freshDb(name: string): Promise<Database> {
     const pool = createPool(await freshTestDatabase(baseUrl!, name), 2);
     pools.push(pool);
-    await runMigrations(pool, migrationSets(migrations, []));
+    // Every core module's tables: initialising seeds the post categories, for example.
+    await runMigrations(pool, migrationSets(migrations, migrationSetNames()));
     return createDatabase(pool);
   }
 
@@ -99,14 +106,26 @@ describe.skipIf(!baseUrl)('instance initialisation', () => {
     expect(await enabledOptionalModules(db)).toEqual(['ai', 'insights', 'tracking']);
     const editor = (await listRoles(db)).find((r) => r.key === 'editor')!;
     expect(editor.permissions).toEqual(['pages.edit']);
+    // The blog preset's default post category, in the primary language.
+    expect((await exportInstanceConfig(db)).posts.categories).toEqual([
+      { name: { 'zh-Hans': '综合' }, slug: { 'zh-Hans': 'general' } },
+    ]);
   });
 
   it('exports a configuration that recreates the same instance on an empty database', async () => {
     const source = await freshDb('instance_export_a');
-    const config = configFromPreset({
-      ...answers,
-      contentLanguages: ['zh-Hans', 'en', 'ar'],
-      type: 'corporate',
+    const config = validateConfig({
+      ...configFromPreset({
+        ...answers,
+        contentLanguages: ['zh-Hans', 'en', 'ar'],
+        type: 'corporate',
+      }),
+      posts: {
+        categories: [
+          { name: { 'zh-Hans': '新闻', en: 'News' }, slug: 'news' },
+          { name: { ar: 'أدلة', en: 'Guides' }, slug: { ar: 'adilla', en: 'guides' } },
+        ],
+      },
     });
     await initializeInstance(source, config, { registry, source: 'wizard', admin });
     const exported = await exportInstanceConfig(source);

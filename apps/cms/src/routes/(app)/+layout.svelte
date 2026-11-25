@@ -5,6 +5,7 @@
   import ImageIcon from '@lucide/svelte/icons/image';
   import InfoIcon from '@lucide/svelte/icons/info';
   import LogOutIcon from '@lucide/svelte/icons/log-out';
+  import NewspaperIcon from '@lucide/svelte/icons/newspaper';
   import SettingsIcon from '@lucide/svelte/icons/settings';
   import UserIcon from '@lucide/svelte/icons/user';
   import UsersIcon from '@lucide/svelte/icons/users';
@@ -19,6 +20,7 @@
   const label = (key: string) => messages[key]?.() ?? key;
   const icons: Record<string, typeof HouseIcon> = {
     '/pages': FileTextIcon,
+    '/posts': NewspaperIcon,
     '/media': ImageIcon,
     '/settings': SettingsIcon,
     '/users': UsersIcon,

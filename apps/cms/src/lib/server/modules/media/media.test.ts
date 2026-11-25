@@ -645,7 +645,7 @@ describe.skipIf(!baseUrl)('media module', { timeout: IMAGE_TEST_TIMEOUT }, () =>
       actor,
       { media: ctx, image: logo },
     );
-    expect(await readSiteData(db, 'site.publisher')).toEqual({ image: logo });
+    expect(await readSiteData(db, 'site.publisher')).toEqual({ image: logo, authorId: null });
     expect((await usagesOf(db, logo)).map((u) => u.targetId).sort()).toEqual([
       'site.branding',
       'site.publisher',

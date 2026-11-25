@@ -2,4 +2,5 @@
 export * from './core.ts';
 export * from './media.ts';
 export * from './pages.ts';
+export * from './posts.ts';
 export * from './site.ts';

@@ -5,23 +5,33 @@
   import { Label } from '#lib/components/ui/label/index.js';
   import { m } from '#lib/paraglide/messages.js';
 
-  // Title and slug of a new language version. The slug is suggested from a Latin title; for
-  // other scripts the editor types it (lowercase Latin, chapter 6).
+  // Title (or name) and slug of a new record or language version. The slug is suggested from a
+  // Latin title; for other scripts the editor types it (lowercase Latin, chapter 6).
   let {
     dir,
     lang,
     reserved,
     invalid,
+    name = 'title',
+    label = m.pages_title(),
+    initialSlug = '',
   }: {
     dir: 'ltr' | 'rtl';
     lang: string;
     reserved: string[];
     invalid: (field: string) => boolean;
+    /** Form field of the title, e.g. `name` for an author. */
+    name?: string;
+    label?: string;
+    /** A slug to start from, e.g. the one of another language. */
+    initialSlug?: string;
   } = $props();
 
   let title = $state('');
-  let slug = $state('');
-  let edited = $state(false);
+  // svelte-ignore state_referenced_locally
+  let slug = $state(initialSlug);
+  // svelte-ignore state_referenced_locally
+  let edited = $state(initialSlug !== '');
 
   function onTitle() {
     if (!edited) slug = slugify(title);
@@ -29,17 +39,17 @@
 </script>
 
 <div class="grid gap-2">
-  <Label for="title">{m.pages_title()}</Label>
+  <Label for={name}>{label}</Label>
   <Input
-    id="title"
-    name="title"
+    id={name}
+    {name}
     {dir}
     {lang}
     required
     maxlength={200}
     bind:value={title}
     oninput={onTitle}
-    aria-invalid={invalid('title')}
+    aria-invalid={invalid(name)}
   />
 </div>
 <div class="grid gap-2">

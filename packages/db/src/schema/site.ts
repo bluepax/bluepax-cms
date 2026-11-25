@@ -14,6 +14,7 @@ import {
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { pages } from './pages.ts';
+import { postCategories, posts } from './posts.ts';
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -75,8 +76,8 @@ export const entityLocations = pgTable(
 
 /**
  * Navigation and footer menus. Pages are flat; the hierarchy of the site is expressed
- * here (chapter 4). An item links to a page or to a URL; items with neither are headings,
- * e.g. footer columns.
+ * here (chapter 4). An item links to a page, a post category, a post or a URL; items with none
+ * of these are headings, e.g. footer columns.
  */
 export const navItems = pgTable(
   'nav_items',
@@ -93,6 +94,12 @@ export const navItems = pgTable(
     url: text('url').notNull().default(''),
     /** A page instead of a URL; its address per language follows the route templates. */
     pageId: uuid('page_id').references(() => pages.id, { onDelete: 'restrict' }),
+    /** A post category instead of a URL (docs/adr/0010). */
+    postCategoryId: uuid('post_category_id').references(() => postCategories.id, {
+      onDelete: 'restrict',
+    }),
+    /** A post instead of a URL (docs/adr/0010). */
+    postId: uuid('post_id').references(() => posts.id, { onDelete: 'restrict' }),
     newTab: boolean('new_tab').notNull().default(false),
     ...timestamps,
   },
@@ -100,5 +107,7 @@ export const navItems = pgTable(
     index('nav_items_menu_idx').on(t.menu, t.sortOrder),
     index('nav_items_parent_idx').on(t.parentId),
     index('nav_items_page_idx').on(t.pageId),
+    index('nav_items_post_category_idx').on(t.postCategoryId),
+    index('nav_items_post_idx').on(t.postId),
   ],
 );

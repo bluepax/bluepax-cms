@@ -141,6 +141,34 @@ export const storageConfigSchema = z.strictObject({
 
 export type StorageConfig = z.output<typeof storageConfigSchema>;
 
+/** Longest name of a post category, as in the admin. */
+export const CATEGORY_NAME_MAX_LENGTH = 200;
+
+/**
+ * A post category of the `posts` section: its name and slug per content language. `slug` may
+ * be one slug for every named language. Descriptions and SEO fields are content, entered in
+ * the admin, and not part of the configuration (docs/adr/0010).
+ */
+const postCategory = z.strictObject({
+  name: z.record(z.string(), z.string().trim().max(CATEGORY_NAME_MAX_LENGTH)),
+  slug: z.union([slug, z.record(z.string(), slug)]),
+});
+
+/**
+ * The `posts` section (chapter 2, "文章：预置分类"): the post categories an instance starts with.
+ * The export writes the current categories, so a fresh instance gets the same ones.
+ */
+export const postsConfigSchema = z
+  .strictObject({ categories: z.array(postCategory).max(200).default([]) })
+  .prefault({});
+
+export interface PostCategorySeed {
+  /** Name per content language, in the order of the content languages. */
+  name: Record<string, string>;
+  /** Slug per language; the same languages as `name`. */
+  slug: Record<string, string>;
+}
+
 export const instanceConfigSchema = z
   .strictObject({
     version: z.literal(CONFIG_VERSION),
@@ -173,6 +201,7 @@ export const instanceConfigSchema = z
     }),
     blocks: z.strictObject({ available: z.array(z.enum(BLOCK_KEYS)).min(1) }),
     storage: storageConfigSchema,
+    posts: postsConfigSchema,
   })
   .transform((config, ctx) => {
     const codes = config.languages.content.map((l) => l.code);
@@ -211,6 +240,7 @@ export const instanceConfigSchema = z
       }
       im = { ...im, text };
     }
+    const categories = postCategories(config.posts.categories, codes, ctx);
     return {
       ...config,
       site: {
@@ -228,8 +258,80 @@ export const instanceConfigSchema = z
       },
       modules: { enabled: [...new Set(config.modules.enabled)].sort() as OptionalModuleId[] },
       blocks: { available: BLOCK_KEYS.filter((k) => config.blocks.available.includes(k)) },
+      posts: { categories },
     };
   });
+
+/**
+ * Checks the post categories against the content languages: every named language needs a
+ * slug, slugs are unique per language, and each category has a name in at least one language.
+ */
+function postCategories(
+  input: readonly z.output<typeof postCategory>[],
+  codes: readonly string[],
+  ctx: z.RefinementCtx,
+): PostCategorySeed[] {
+  const taken = new Map<string, Set<string>>();
+  return input.map((category, index) => {
+    const path = ['posts', 'categories', index];
+    const names = new Map<string, string>();
+    for (const [key, value] of Object.entries(category.name)) {
+      const code = canonicalLocale(key);
+      if (!code || !codes.includes(code)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [...path, 'name', key],
+          message: 'must be one of the content languages',
+        });
+      } else if (value) names.set(code, value);
+    }
+    if (names.size === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [...path, 'name'],
+        message: 'needs a name in at least one content language',
+      });
+    }
+    const slugs = new Map<string, string>();
+    if (typeof category.slug === 'string') {
+      for (const code of names.keys()) slugs.set(code, category.slug);
+    } else {
+      for (const [key, value] of Object.entries(category.slug)) {
+        const code = canonicalLocale(key);
+        if (!code || !names.has(code)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [...path, 'slug', key],
+            message: 'must be a language the category has a name in',
+          });
+        } else slugs.set(code, value);
+      }
+    }
+    const result: PostCategorySeed = { name: {}, slug: {} };
+    for (const code of codes) {
+      const name = names.get(code);
+      if (!name) continue;
+      const value = slugs.get(code);
+      if (!value) {
+        ctx.addIssue({ code: 'custom', path: [...path, 'slug', code], message: 'is missing' });
+        continue;
+      }
+      const used = taken.get(code) ?? new Set<string>();
+      if (used.has(value)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [...path, 'slug', code],
+          message: `"${value}" is used by another category in this language`,
+        });
+      }
+      used.add(value);
+      taken.set(code, used);
+      result.name[code] = name;
+      result.slug[code] = value;
+    }
+    return result;
+  });
+}
 
 export type InstanceConfigInput = z.input<typeof instanceConfigSchema>;
 export type InstanceConfig = z.output<typeof instanceConfigSchema>;
