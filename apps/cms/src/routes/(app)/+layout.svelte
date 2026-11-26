@@ -6,6 +6,7 @@
   import InfoIcon from '@lucide/svelte/icons/info';
   import LogOutIcon from '@lucide/svelte/icons/log-out';
   import NewspaperIcon from '@lucide/svelte/icons/newspaper';
+  import PlugIcon from '@lucide/svelte/icons/plug';
   import SettingsIcon from '@lucide/svelte/icons/settings';
   import UserIcon from '@lucide/svelte/icons/user';
   import UsersIcon from '@lucide/svelte/icons/users';
@@ -23,6 +24,7 @@
     '/posts': NewspaperIcon,
     '/media': ImageIcon,
     '/settings': SettingsIcon,
+    '/integration': PlugIcon,
     '/users': UsersIcon,
   };
 
