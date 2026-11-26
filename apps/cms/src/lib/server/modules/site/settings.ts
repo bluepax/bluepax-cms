@@ -3,10 +3,19 @@
 // config file holds too and the export writes back, and site data that is entered in the
 // admin only (contact, social links, footer, branding, SMTP), stored as `site.*` settings rows.
 import { schema, type Database, type Executor, type Localized } from '@bluepax/db';
-import { canonicalLocale, httpUrl, serviceKey, type InstanceConfig } from '@bluepax/presets';
+import {
+  canonicalLocale,
+  httpUrl,
+  ROUTE_KINDS,
+  routeFixedSegments,
+  routeTemplateIssues,
+  serviceKey,
+  type InstanceConfig,
+} from '@bluepax/presets';
 import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { audit } from '../../audit.ts';
+import { addressChanges } from '../../content/routes.ts';
 import { exportInstanceConfig, updateInstanceConfig, type ConfigSection } from '../../instance.ts';
 import { decrypt, encrypt } from '../../security/crypto.ts';
 import { MediaError } from '../media/errors.ts';
@@ -58,8 +67,11 @@ async function saveConfig(
   section: ConfigSection,
   actor: Actor,
   change: (current: InstanceConfig) => unknown,
-  /** Further writes in the same transaction. */
-  extra?: (tx: Executor) => Promise<unknown>,
+  /** Further checks and writes in the same transaction; throwing undoes the change. */
+  extra?: (
+    tx: Executor,
+    change: { before: InstanceConfig; after: InstanceConfig },
+  ) => Promise<unknown>,
 ): Promise<InstanceConfig> {
   return db.transaction(async (tx) => {
     let result: Awaited<ReturnType<typeof updateInstanceConfig>>;
@@ -80,7 +92,7 @@ async function saveConfig(
         ip: actor.ip,
       });
     }
-    await extra?.(tx);
+    await extra?.(tx, result);
     return result.after;
   });
 }
@@ -189,26 +201,123 @@ export function saveFrontend(db: Database, input: FrontendInput, actor: Actor) {
     'frontend',
     actor,
     (c) => ({ ...c, frontend: { ...c.frontend, reservedSlugs: input.reservedSlugs } }),
-    async (tx) => {
-      const { frontend } = await exportInstanceConfig(tx);
-      const used = await pagesUsingSlugs(tx, frontend.reservedSlugs);
-      const posts = await postsUsingSlugs(tx, frontend.reservedSlugs);
-      if (used.length > 0 || posts.length > 0) {
+    (tx, { after }) => refuseSlugsInUse(tx, after.frontend.reservedSlugs, () => ['reservedSlugs']),
+  );
+}
+
+/**
+ * Refuses slugs that pages or posts use (`slug_in_use`, with them), e.g. before they become
+ * reserved. `fields` names the form fields at fault for the slugs in use.
+ */
+async function refuseSlugsInUse(
+  tx: Executor,
+  slugs: readonly string[],
+  fields: (used: Set<string>) => string[],
+): Promise<void> {
+  const pages = await pagesUsingSlugs(tx, slugs);
+  const posts = await postsUsingSlugs(tx, slugs);
+  if (pages.length === 0 && posts.length === 0) return;
+  const used = new Set([...pages, ...posts].map((u) => u.slug));
+  throw new InvalidInputError(
+    fields(used),
+    `reserved slugs in use: ${[...used].join(', ')}`,
+    'slug_in_use',
+    {
+      pages: pages.map((u) => ({
+        pageId: u.pageId,
+        locale: u.locale,
+        slug: u.slug,
+        title: u.title,
+      })),
+      posts,
+    },
+  );
+}
+
+export interface RouteTemplatesInput {
+  /** A template per route; left out means unchanged. */
+  routes: Partial<Record<string, string>>;
+  /**
+   * The number of moved published addresses the admin confirmed (`confirm_required`); null
+   * before confirming.
+   */
+  confirmed: number | null;
+}
+
+/** How many moved addresses a `confirm_required` refusal shows. */
+const SHOWN_CHANGES = 20;
+
+/**
+ * Route templates of the frontend section (chapter 6, docs/adr/0011). Refused with the fields
+ * `routes.<route>`: templates with issues (`route_templates`, with the issues of
+ * routeTemplateIssues), fixed segments that pages or posts use as slugs (`slug_in_use`, since
+ * fixed segments are reserved), and changes that move published addresses until the admin
+ * confirms their number (`confirm_required`, with the number and the first moves). A change is
+ * audited as `site.routes_change` with the templates before and after and every moved address;
+ * the seo module (M2) writes the 301s from them.
+ */
+export function saveRouteTemplates(db: Database, input: RouteTemplatesInput, actor: Actor) {
+  return saveConfig(
+    db,
+    'frontend',
+    actor,
+    (c) => {
+      const routes = { ...c.frontend.routes };
+      for (const kind of ROUTE_KINDS) {
+        const value = input.routes[kind];
+        if (value !== undefined) routes[kind] = value.trim();
+      }
+      const issues = routeTemplateIssues(routes);
+      if (issues.length > 0) {
         throw new InvalidInputError(
-          ['reservedSlugs'],
-          `reserved slugs in use: ${[...used, ...posts].map((u) => u.slug).join(', ')}`,
-          'slug_in_use',
+          issues.map((i) => `routes.${i.kind}`),
+          `invalid route templates: ${issues.map((i) => `${i.kind} ${i.message}`).join('; ')}`,
+          'route_templates',
           {
-            pages: used.map((u) => ({
-              pageId: u.pageId,
-              locale: u.locale,
-              slug: u.slug,
-              title: u.title,
+            issues: issues.map(({ kind, code, other, example }) => ({
+              kind,
+              code,
+              other,
+              example,
             })),
-            posts,
           },
         );
       }
+      return { ...c, frontend: { ...c.frontend, routes } };
+    },
+    async (tx, { before, after }) => {
+      const routes = after.frontend.routes;
+      await refuseSlugsInUse(tx, routeFixedSegments(routes), (used) =>
+        ROUTE_KINDS.filter((kind) => routes[kind].split('/').some((s) => used.has(s))).map(
+          (kind) => `routes.${kind}`,
+        ),
+      );
+      const changes = await addressChanges(tx, before.frontend.routes, routes);
+      if (changes.length > 0 && input.confirmed !== changes.length) {
+        throw new InvalidInputError(
+          [],
+          `${changes.length} published addresses move; confirm first`,
+          'confirm_required',
+          {
+            count: changes.length,
+            changes: changes.slice(0, SHOWN_CHANGES).map(({ from, to }) => ({ from, to })),
+          },
+        );
+      }
+      const kinds = ROUTE_KINDS.filter((kind) => before.frontend.routes[kind] !== routes[kind]);
+      if (kinds.length === 0) return;
+      await audit(tx, {
+        action: 'site.routes_change',
+        actorId: actor.id,
+        targetType: 'settings',
+        targetId: 'frontend',
+        details: {
+          before: Object.fromEntries(kinds.map((kind) => [kind, before.frontend.routes[kind]])),
+          after: Object.fromEntries(kinds.map((kind) => [kind, routes[kind]])),
+          addresses: changes,
+        },
+        ip: actor.ip,
+      });
     },
   );
 }

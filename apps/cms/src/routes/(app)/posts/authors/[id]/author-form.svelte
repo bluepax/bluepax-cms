@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { contentPath, type RouteTemplates } from '@bluepax/presets/routes';
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '$app/forms';
   import type { PickedMedia } from '#lib/components/media-dialog.svelte';
@@ -29,6 +30,7 @@
     media: initialMedia,
     accounts,
     frontendBaseUrl,
+    routes,
     form,
   }: {
     author: {
@@ -49,6 +51,7 @@
     media: Record<string, PickedMedia>;
     accounts: { id: string; displayName: string; email: string; authorId: string | null }[];
     frontendBaseUrl: string;
+    routes: RouteTemplates;
     form: unknown;
   } = $props();
 
@@ -237,7 +240,7 @@
         title={name}
         {locale}
         {dir}
-        path="/{locale.toLowerCase()}/authors/{slug}"
+        path={contentPath('author', locale, slug, routes)}
         {frontendBaseUrl}
         {schema}
         slugNote={publicPage ? '' : m.posts_author_no_page_note()}

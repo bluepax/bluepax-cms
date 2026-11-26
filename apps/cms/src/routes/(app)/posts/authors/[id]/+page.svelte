@@ -88,6 +88,7 @@
     media={data.media}
     accounts={data.accounts}
     frontendBaseUrl={data.frontendBaseUrl}
+    routes={data.routes}
     {form}
   />
 {/key}

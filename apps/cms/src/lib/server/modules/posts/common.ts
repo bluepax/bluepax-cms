@@ -2,6 +2,7 @@
 // media checks and the errors of concurrent saves.
 import { isSlug } from '@bluepax/core';
 import { schema, type Executor } from '@bluepax/db';
+import type { RouteTemplates } from '@bluepax/presets';
 import { and, eq, ne, type SQL } from 'drizzle-orm';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
@@ -34,12 +35,15 @@ export async function contentSetup(db: Executor): Promise<{
   languages: Language[];
   primary: string;
   frontendBaseUrl: string;
+  /** Route templates, for the address preview. */
+  routes: RouteTemplates;
 }> {
   const config = await exportInstanceConfig(db);
   return {
     languages: config.languages.content.map((l) => ({ code: l.code, dir: l.dir })),
     primary: config.languages.primary,
     frontendBaseUrl: config.frontend.baseUrl,
+    routes: config.frontend.routes,
   };
 }
 
@@ -106,8 +110,9 @@ export type TranslatedKind = keyof typeof TRANSLATIONS;
 /**
  * Checks a slug for one language: lowercase Latin (`isSlug`), not used by another record of
  * the same kind in that language (`slug_taken`, 409). Post slugs may not be reserved either
- * (chapter 2: "页面与文章 slug 不得重名"); categories, tags and authors live under their own
- * fixed route segments, so reserved slugs do not apply to them.
+ * (chapter 2: "页面与文章 slug 不得重名"). Categories, tags and authors are not checked against
+ * reserved slugs; the route template check never lets their `{slug}` meet a fixed segment
+ * (routeTemplateIssues, docs/adr/0011).
  */
 export async function checkSlug(
   db: Executor,

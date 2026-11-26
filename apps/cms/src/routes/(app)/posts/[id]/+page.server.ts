@@ -79,6 +79,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     primary: setup.primary,
     reserved: [...setup.reserved.configured, ...setup.reserved.routes].sort(),
     frontendBaseUrl: setup.frontendBaseUrl,
+    routes: setup.routes,
     options: { categories, tags, authors },
     site: { name: site.name, publisher: site.publisher },
     can: {

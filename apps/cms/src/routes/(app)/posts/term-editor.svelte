@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { RouteTemplates } from '@bluepax/presets/routes';
   import type { PickedMedia } from '#lib/components/media-dialog.svelte';
   import * as Alert from '#lib/components/ui/alert/index.js';
   import { m } from '#lib/paraglide/messages.js';
@@ -32,6 +33,7 @@
     languages: { code: string; dir: 'ltr' | 'rtl' }[];
     primary: string;
     frontendBaseUrl: string;
+    routes: RouteTemplates;
   }
   let { data, form }: { data: Data; form: unknown } = $props();
 
@@ -124,6 +126,7 @@
     posts={data.term.posts}
     media={data.media}
     frontendBaseUrl={data.frontendBaseUrl}
+    routes={data.routes}
     {form}
   />
 {/key}

@@ -95,6 +95,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     ),
     reserved: [...setup.reserved.configured, ...setup.reserved.routes].sort(),
     frontendBaseUrl: setup.frontendBaseUrl,
+    routes: setup.routes,
     site: { name: site.name, publisher: site.publisher },
     postCategories,
     posts: Object.fromEntries(posts.map((p) => [p.id, p])),

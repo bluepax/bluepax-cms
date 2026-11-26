@@ -114,12 +114,19 @@ describe.skipIf(!baseUrl)('instance initialisation', () => {
 
   it('exports a configuration that recreates the same instance on an empty database', async () => {
     const source = await freshDb('instance_export_a');
+    const preset = configFromPreset({
+      ...answers,
+      contentLanguages: ['zh-Hans', 'en', 'ar'],
+      type: 'corporate',
+    });
     const config = validateConfig({
-      ...configFromPreset({
-        ...answers,
-        contentLanguages: ['zh-Hans', 'en', 'ar'],
-        type: 'corporate',
-      }),
+      ...preset,
+      // Chapter 12: the same route templates too, not only the defaults.
+      frontend: {
+        ...preset.frontend,
+        routes: { post: '/{locale}/news/{slug}', author: '/{locale}/team/{slug}' },
+        reservedSlugs: ['search'],
+      },
       posts: {
         categories: [
           { name: { 'zh-Hans': '新闻', en: 'News' }, slug: 'news' },
@@ -130,6 +137,11 @@ describe.skipIf(!baseUrl)('instance initialisation', () => {
     await initializeInstance(source, config, { registry, source: 'wizard', admin });
     const exported = await exportInstanceConfig(source);
     expect(exported).toEqual(config);
+    expect(exported.frontend.routes).toMatchObject({
+      post: '/{locale}/news/{slug}',
+      author: '/{locale}/team/{slug}',
+      page: '/{locale}/{slug}',
+    });
 
     const target = await freshDb('instance_export_b');
     await initializeInstance(target, parseConfigYaml(stringifyConfig(exported)), {

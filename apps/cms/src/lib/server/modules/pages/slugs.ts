@@ -11,7 +11,7 @@ import { PageError } from './errors.ts';
 /** Reserved slugs: the configured ones (frontend section) and the route templates' segments. */
 export async function reservedSlugs(db: Executor): Promise<Set<string>> {
   const config = await exportInstanceConfig(db);
-  return new Set([...config.frontend.reservedSlugs, ...routeFixedSegments()]);
+  return new Set([...config.frontend.reservedSlugs, ...routeFixedSegments(config.frontend.routes)]);
 }
 
 /**
