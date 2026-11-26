@@ -90,7 +90,7 @@ OpenAPI 文档同源生成、最小示例前台只依赖公开 SDK。ADR 0012 �
 
 ## 影响
 
-- `examples/minimal-site` 可以只依赖这两个包。
+- `examples/minimal-site` 只依赖 cms-client（区块类型经它取自 cms-blocks），见 0014。
 - 契约改在 `packages/cms-client` 中进行（提交范围 `cms-client`），一次改动同时改变 OpenAPI 文档与 SDK 类型；v1 只增
   字段、不删不改（第 6 章）。
 - 以后：`verifyWebhook()`（M2，与 Webhook 一起）；Event API、`/feed`、`/seo/*`、`/search`、目录与区域端点上线时在
