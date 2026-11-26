@@ -1,0 +1,55 @@
+# BluePax CMS with docker compose, see README.md ("Quick start"), deploy/README.md and
+# docs/adr/0015. In the folder that holds this file:
+#   cp .env.example .env    # then fill in ORIGIN and the secrets
+#   docker compose up -d
+# The CMS listens on 127.0.0.1:3001 of the host; HTTPS ends at a gateway in front of it
+# (examples in deploy/gateway/). Open ORIGIN and enter BLUEPAX_INSTALL_TOKEN in the setup wizard.
+name: bluepax-cms
+
+services:
+  cms:
+    image: ${BLUEPAX_IMAGE:-ghcr.io/bluepax/bluepax-cms:latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://bluepax:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/bluepax
+      APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env}
+      BLUEPAX_INSTALL_TOKEN: ${BLUEPAX_INSTALL_TOKEN:?set BLUEPAX_INSTALL_TOKEN in .env}
+      ORIGIN: ${ORIGIN:?set ORIGIN in .env to the public URL of the CMS}
+      BLUEPAX_ROLES: ${BLUEPAX_ROLES:-web,worker}
+      BLUEPAX_CONFIG_FILE: ${BLUEPAX_CONFIG_FILE:-}
+      BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT:-256M}
+      ADDRESS_HEADER: ${ADDRESS_HEADER:-}
+      XFF_DEPTH: ${XFF_DEPTH:-1}
+    ports:
+      - ${BLUEPAX_BIND:-127.0.0.1}:${BLUEPAX_PORT:-3001}:3001
+    volumes:
+      - uploads:/data/uploads
+      - backups:/data/backups
+      # Instance config files for BLUEPAX_CONFIG_FILE (e.g. /config/corporate.yaml):
+      # - ./config:/config:ro
+    # adapter-node finishes open requests for up to 30 s after SIGTERM.
+    stop_grace_period: 40s
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bluepax
+      # Only used when the pgdata volume is created; changing it later does not change the password.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: bluepax
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U bluepax -d bluepax]
+      interval: 5s
+      retries: 30
+
+volumes:
+  pgdata:
+  uploads:
+  backups:

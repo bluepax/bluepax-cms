@@ -27,3 +27,35 @@ updates:
     commit-message:
       prefix: ci
       include: scope
+
+  # Base image of deploy/Dockerfile (Node.js on Alpine). Node.js majors follow .nvmrc by hand.
+  - package-ecosystem: docker
+    directory: /deploy
+    schedule:
+      interval: weekly
+    target-branch: dev
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: build
+      include: scope
+    ignore:
+      - dependency-name: node
+        update-types: [version-update:semver-major]
+
+  # PostgreSQL in the compose files (production quick start and development database).
+  - package-ecosystem: docker-compose
+    directories:
+      - /deploy
+      - /deploy/dev
+    schedule:
+      interval: weekly
+    target-branch: dev
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: build
+      include: scope
+    ignore:
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]
