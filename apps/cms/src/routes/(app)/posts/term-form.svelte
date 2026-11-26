@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { contentPath, type RouteTemplates } from '@bluepax/presets/routes';
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '$app/forms';
   import type { PickedMedia } from '#lib/components/media-dialog.svelte';
@@ -22,6 +23,7 @@
     posts,
     media: initialMedia,
     frontendBaseUrl,
+    routes,
     form,
   }: {
     kind: 'category' | 'tag';
@@ -36,6 +38,7 @@
     posts: number;
     media: Record<string, PickedMedia>;
     frontendBaseUrl: string;
+    routes: RouteTemplates;
     form: unknown;
   } = $props();
 
@@ -61,7 +64,6 @@
   let media = $state({ ...initialMedia });
 
   const invalid = $derived(failedIn(form));
-  const segment = $derived(kind === 'category' ? 'category' : 'tag');
   const act = (action: string) => `?/${action}&locale=${encodeURIComponent(locale)}`;
   const schema = (shown: SchemaBase) => ({ '@type': 'CollectionPage', ...shown });
   const submit: SubmitFunction = ({ submitter, cancel }) => {
@@ -159,7 +161,7 @@
         title={name}
         {locale}
         {dir}
-        path="/{locale.toLowerCase()}/blog/{segment}/{slug}"
+        path={contentPath(kind === 'category' ? 'postCategory' : 'tag', locale, slug, routes)}
         {frontendBaseUrl}
         {schema}
         bind:media

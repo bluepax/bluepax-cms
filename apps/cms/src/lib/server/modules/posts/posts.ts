@@ -20,7 +20,7 @@ import {
   type PostSource,
   type SeoFields,
 } from '@bluepax/db';
-import { routeFixedSegments } from '@bluepax/presets';
+import { routeFixedSegments, type RouteTemplates } from '@bluepax/presets';
 import {
   and,
   asc,
@@ -91,6 +91,8 @@ export interface PostsSetup {
   languages: Language[];
   primary: string;
   frontendBaseUrl: string;
+  /** Route templates, for the address preview. */
+  routes: RouteTemplates;
   /** Reserved slugs: the configured ones and the fixed segments of the route templates. */
   reserved: { configured: string[]; routes: string[] };
 }
@@ -101,7 +103,11 @@ export async function postsSetup(db: Executor): Promise<PostsSetup> {
     languages: config.languages.content.map((l) => ({ code: l.code, dir: l.dir })),
     primary: config.languages.primary,
     frontendBaseUrl: config.frontend.baseUrl,
-    reserved: { configured: config.frontend.reservedSlugs, routes: routeFixedSegments() },
+    routes: config.frontend.routes,
+    reserved: {
+      configured: config.frontend.reservedSlugs,
+      routes: routeFixedSegments(config.frontend.routes),
+    },
   };
 }
 

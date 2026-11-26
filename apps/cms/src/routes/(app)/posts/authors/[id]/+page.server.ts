@@ -59,6 +59,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     languages: setup.languages,
     primary: setup.primary,
     frontendBaseUrl: setup.frontendBaseUrl,
+    routes: setup.routes,
   };
 };
 

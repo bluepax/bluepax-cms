@@ -95,6 +95,7 @@ export function termEditLoad(kind: TermKind) {
       languages: setup.languages,
       primary: setup.primary,
       frontendBaseUrl: setup.frontendBaseUrl,
+      routes: setup.routes,
     };
   };
 }

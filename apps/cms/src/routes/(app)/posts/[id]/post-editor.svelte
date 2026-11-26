@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { contentPath, type RouteTemplates } from '@bluepax/presets/routes';
   import { enhance } from '$app/forms';
   import { beforeNavigate } from '$app/navigation';
   import type { SubmitFunction } from '$app/forms';
@@ -53,6 +54,7 @@
     options,
     reserved,
     frontendBaseUrl,
+    routes,
     site,
     can,
     canDeleteTranslation,
@@ -66,6 +68,7 @@
     options: { categories: Options; tags: Options; authors: Options };
     reserved: string[];
     frontendBaseUrl: string;
+    routes: RouteTemplates;
     site: { name: string; publisher: { type: string; name: string } };
     can: { publish: boolean; delete: boolean; taxonomy: boolean; authors: boolean };
     canDeleteTranslation: boolean;
@@ -128,7 +131,7 @@
   const publishedIso = $derived(publishedLocal ? new Date(publishedLocal).toISOString() : '');
 
   // Same rule as the route templates (`/{locale}/blog/{slug}`).
-  const path = $derived(`/${locale.toLowerCase()}/blog/${slug}`);
+  const path = $derived(contentPath('post', locale, slug, routes));
   const schema = (shown: SchemaBase) => ({
     '@type': 'BlogPosting',
     ...shown,

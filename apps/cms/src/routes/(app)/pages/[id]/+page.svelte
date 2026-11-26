@@ -112,6 +112,7 @@
       hiddenFeatures={data.hiddenFeatures}
       reserved={data.reserved}
       frontendBaseUrl={data.frontendBaseUrl}
+      routes={data.routes}
       site={data.site}
       primary={data.primary}
       postCategories={data.postCategories}

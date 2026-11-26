@@ -93,6 +93,7 @@
       options={data.options}
       reserved={data.reserved}
       frontendBaseUrl={data.frontendBaseUrl}
+      routes={data.routes}
       site={data.site}
       can={data.can}
       canDeleteTranslation={data.post.translations.length > 1}

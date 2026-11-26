@@ -13,7 +13,7 @@ import {
   type Localized,
   type SeoFields,
 } from '@bluepax/db';
-import { routeFixedSegments } from '@bluepax/presets';
+import { routeFixedSegments, type RouteTemplates } from '@bluepax/presets';
 import {
   and,
   asc,
@@ -93,6 +93,8 @@ export interface PagesSetup {
   languages: { code: string; dir: 'ltr' | 'rtl' }[];
   primary: string;
   frontendBaseUrl: string;
+  /** Route templates, for the address preview. */
+  routes: RouteTemplates;
   offer: BlockOffer;
   /** Reserved slugs: the configured ones and the fixed segments of the route templates. */
   reserved: { configured: string[]; routes: string[] };
@@ -108,8 +110,12 @@ export async function pagesSetup(
     languages: config.languages.content.map((l) => ({ code: l.code, dir: l.dir })),
     primary: config.languages.primary,
     frontendBaseUrl: config.frontend.baseUrl,
+    routes: config.frontend.routes,
     offer: blockOffer(config, registry, active),
-    reserved: { configured: config.frontend.reservedSlugs, routes: routeFixedSegments() },
+    reserved: {
+      configured: config.frontend.reservedSlugs,
+      routes: routeFixedSegments(config.frontend.routes),
+    },
   };
 }
 

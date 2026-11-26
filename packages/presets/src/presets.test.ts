@@ -3,6 +3,7 @@ import {
   BLOCK_KEYS,
   ConfigError,
   configFromPreset,
+  DEFAULT_ROUTE_TEMPLATES,
   parseConfigYaml,
   stringifyConfig,
   textDirection,
@@ -197,6 +198,34 @@ describe('instance config', () => {
     expect(() => frontend(['a b'])).toThrow(/frontend.reservedSlugs.0/);
   });
 
+  it('keeps the route templates, with defaults for those left out', () => {
+    const config = configFromPreset({ ...answers, type: 'corporate' });
+    expect(config.frontend.routes).toEqual(DEFAULT_ROUTE_TEMPLATES);
+    expect(configFromPreset({ ...answers, type: 'blog' }).frontend.routes).toEqual(
+      DEFAULT_ROUTE_TEMPLATES,
+    );
+    // A config file from before the route templates has no `routes`.
+    const older = { baseUrl: config.frontend.baseUrl, reservedSlugs: [] };
+    expect(validateConfig({ ...config, frontend: older }).frontend.routes).toEqual(
+      DEFAULT_ROUTE_TEMPLATES,
+    );
+    const routes = (patch: Record<string, string>) =>
+      validateConfig({ ...config, frontend: { ...older, routes: patch } }).frontend.routes;
+    expect(routes({ post: ' /{locale}/news/{slug} ' })).toEqual({
+      ...DEFAULT_ROUTE_TEMPLATES,
+      post: '/{locale}/news/{slug}',
+    });
+    expect(() => routes({ post: '/{locale}/{slug}' })).toThrow(
+      /frontend\.routes\.page: can produce the same address as the post template/,
+    );
+    expect(() => routes({ author: '/authors/{slug}' })).toThrow(
+      /frontend\.routes\.author: must start with \/\{locale\}/,
+    );
+    expect(() => routes({ catalogItem: '/{locale}/{type}/{category}/{slug}' })).toThrow(
+      /frontend\.routes/,
+    );
+  });
+
   it('checks the post categories against the content languages', () => {
     const config = validateConfig({
       ...valid,
@@ -259,6 +288,7 @@ describe('example configs', () => {
         configFromPreset({ ...answers, type }).blocks.available,
       );
       expect(config.posts.categories.length).toBe(1);
+      expect(config.frontend.routes).toEqual(DEFAULT_ROUTE_TEMPLATES);
       // The YAML written by an export reads back to the same configuration.
       expect(parseConfigYaml(stringifyConfig(config))).toEqual(config);
     }

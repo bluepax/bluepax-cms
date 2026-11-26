@@ -61,7 +61,7 @@
 - **状态与 slug** 与 pages 相同：状态转换规则移到 `apps/cms/src/lib/server/content/status.ts`，两个模块共用；文章 slug
   用 `isSlug`、同一语言唯一（409 `slug_taken`）、不得是保留 slug（第 2 章）。分类、标签、作者的 slug 同样 `isSlug`
   且同类内同一语言唯一，但不检查保留 slug：它们的地址在固定段 `blog/category`、`blog/tag`、`authors` 之下，不会与
-  页面或文章重名。“设置 → 前台”把某 slug 设为保留时，除了页面也检查文章。改 slug 在 M1 不写 301，审计日志记
+  页面或文章重名（模板可改之后由 ADR 0011 的模板查重保证）。“设置 → 前台”把某 slug 设为保留时，除了页面也检查文章。改 slug 在 M1 不写 301，审计日志记
   `posts.slug_change`、`posts.category_slug_change` 等。
 - **“文章：预置分类”**（配置文件 `posts.categories`）：每个分类是 `name`（按语言）与 `slug`（按语言，或一个 slug
   用于所有已命名的语言），语言必须是内容语言，同一语言内 slug 唯一。初始化时按顺序建出这些分类；导出写当前的
@@ -107,7 +107,7 @@
 - 改 slug 写 301、删除记 410、`content.*` Webhook 的发送、全文检索列 `search_vector`：M2。
 - Delivery 端点 `/posts`、`/posts/{slug}`、`/post-categories`、`/tags`、`/authors`、`/authors/{slug}`、`/feed`，
   `seo` 对象（OG 回退到封面、hreflang、含主作者 publisher 的 JSON-LD）与富文本安全 HTML：Delivery API 项。
-- 路由模板的配置与 `/routes/resolve`：路由模板项。
+- 路由模板的配置与 `/routes/resolve`：路由模板项（已完成，见 ADR 0011；端点随 Delivery API 项）。
 - 预览链接：Preview API 项。
 - 关联目录项（文章字段）与富文本中的目录项卡：catalog（M4）。
 - “AI 草稿须审核后才能发布”：`ai` 模块（1.2）。

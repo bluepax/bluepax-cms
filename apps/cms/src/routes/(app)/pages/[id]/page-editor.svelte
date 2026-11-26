@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pagePath, type RouteTemplates } from '@bluepax/presets/routes';
   import { enhance } from '$app/forms';
   import { beforeNavigate } from '$app/navigation';
   import type { SubmitFunction } from '$app/forms';
@@ -38,6 +39,7 @@
     hiddenFeatures,
     reserved,
     frontendBaseUrl,
+    routes,
     site,
     primary,
     postCategories,
@@ -55,6 +57,7 @@
     hiddenFeatures: Record<string, string[]>;
     reserved: string[];
     frontendBaseUrl: string;
+    routes: RouteTemplates;
     site: { name: string; publisher: { type: string; name: string } };
     primary: string;
     postCategories: { id: string; names: Record<string, string> }[];
@@ -83,12 +86,8 @@
   const invalid = $derived(failedIn(form));
   const status = $derived(translation.status);
   const markDirty = () => (dirty = true);
-  // Same rule as the route templates (`/{locale}` for the home page, `/{locale}/{slug}` else).
-  const path = $derived(
-    isHome
-      ? `/${translation.locale.toLowerCase()}`
-      : `/${translation.locale.toLowerCase()}/${slug}`,
-  );
+  // The address from the route templates: the home page has its own template.
+  const path = $derived(pagePath(translation.locale, slug, isHome, routes));
   const schema = (shown: SchemaBase) => ({
     '@type': 'WebPage',
     ...shown,
@@ -295,9 +294,7 @@
         {path}
         {frontendBaseUrl}
         {schema}
-        slugNote={isHome
-          ? m.pages_slug_home_hint({ locale: translation.locale.toLowerCase() })
-          : ''}
+        slugNote={isHome ? m.pages_slug_home_hint({ path }) : ''}
         bind:media
         {reserved}
         {invalid}

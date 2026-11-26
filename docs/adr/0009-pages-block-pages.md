@@ -32,7 +32,7 @@
   目标关键词、一句话结论。OG 回退（OG 文字 → meta → 全局默认；OG 图 → 首图 → 全局默认）在 Delivery 输出时计算。
 - **首页**：`pages.is_home`，部分唯一索引保证最多一个页面是首页；设为首页需要 `pages.publish`，原首页自动变回普通
   页面。首页不能删除（先指定另一个首页）。首页的各语言版本仍有 slug（满足 (locale, slug) 约束），地址按模板为
-  `/{locale}`；`/{locale}/{首页 slug}` 怎样解析由路由模板项决定（建议 301 到 `/{locale}`）。
+  `/{locale}`；`/{locale}/{首页 slug}` 301 到首页地址（ADR 0011）。
 - **状态**（按语言）：草稿 → 待审核（提交审核）→ 已发布；待审核 → 草稿（退回）；已发布 → 已下线（下线）；草稿、
   待审核与已下线都可直接发布。发布写入 `published_at`（最近一次发布时间），下线写入 `unpublished_at`。保存与状态
   变化可在同一事务完成，编辑页的“发布”“提交审核”等按钮都会先保存表单。
@@ -48,7 +48,7 @@
     模板中的全部固定段。已被页面使用的 slug 不能设为保留，会列出这些页面。
   - 路由模板的配置属于后续的“路由模板”项；在那之前所有实例使用 `packages/presets` 的 `DEFAULT_ROUTE_TEMPLATES`，
     固定段为 `authors`、`blog`、`category`、`tag`。规范说“模板中的固定段自动加入保留 slug”，所以 `category`、`tag`
-    也不能作页面 slug。
+    也不能作页面 slug。（ADR 0011 起模板在配置 `frontend.routes` 中，固定段按当前模板计算。）
   - 改 slug 在 M1 不写 301；审计日志记 `pages.slug_change`（语言、旧 slug、新 slug、当时是否已发布），M2 的 seo 项
     可以据此为已上线的地址补 301。
 - **区块定义只有一份**：13 种区块的 Zod schema 放在新包 `packages/cms-blocks`（`@bluepax/cms-blocks`，暂为 private），
@@ -94,7 +94,8 @@
 - 改 slug 自动写 301、永久删除记 410、`content.*` Webhook 的发送：M2（seo、Webhook）。
 - Delivery `GET /pages/{slug}`、富文本的安全 HTML、`seo` 对象（回退、hreflang、含 publisher 的 JSON-LD）、媒体绝对
   URL：Delivery API 项。
-- 路由模板的配置、`/routes/resolve`（含首页 slug 地址的处理）与按模板计算的固定段：路由模板项。
+- 路由模板的配置、`/routes/resolve`（含首页 slug 地址的处理）与按模板计算的固定段：路由模板项（已完成，见 ADR
+  0011；`/routes/resolve` 的端点随 Delivery API 项）。
 - 带签名的预览链接：Preview API 项。
 - 精选文章、最新文章中选文章与分类的界面：posts。
 - 区块 7、8、10 的编辑界面、Hero 选型条、联系 CTA 的表单与默认业务类型：catalog、regions、inquiries（M4）。

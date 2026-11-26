@@ -19,6 +19,16 @@ languages:
   admin: en
 frontend:
   baseUrl: https://blog.example.com
+  # Route templates (spec chapter 6): the CMS builds every frontend address from them and the
+  # frontend implements the same routes. Placeholders {locale} (always first) and {slug}; the
+  # other segments are fixed and reserved as slugs. Templates left out keep these defaults.
+  routes:
+    home: /{locale}
+    page: /{locale}/{slug}
+    post: /{locale}/blog/{slug}
+    postCategory: /{locale}/blog/category/{slug}
+    tag: /{locale}/blog/tag/{slug}
+    author: /{locale}/authors/{slug}
   # Paths of fixed frontend sections that pages and posts may not use as slugs. The fixed
   # segments of the route templates (blog, authors, ...) are reserved on top.
   reservedSlugs: [search]
