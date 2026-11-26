@@ -503,7 +503,7 @@ describe.skipIf(!baseUrl)('delivery api', { timeout: 60_000 }, () => {
         reservedSlugs: [],
       });
       expect(site.mediaOrigin).toEqual({ driver: 'local', baseUrl: `${CMS}/uploads` });
-      expect(site.branding.logo?.url).toMatch(new RegExp(`^${CMS}/uploads/`));
+      expect(site.branding.logo?.url.startsWith(`${CMS}/uploads/`)).toBe(true);
       expect(site.branding.themeColor).toBe('#112233');
       // The About page is not published in Chinese: the item has no address there.
       expect(site.navigation.header).toEqual([
@@ -579,7 +579,10 @@ describe.skipIf(!baseUrl)('delivery api', { timeout: 60_000 }, () => {
       expect(page.blocks.map((b) => b.type)).toEqual(['rich-text', 'latest-posts']);
       const html = page.blocks[0]!.html.body!;
       expect(html).toContain('<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>');
-      expect(html).toMatch(new RegExp(`<img src="${CMS}/uploads/[^"]+" alt=""`));
+      // String checks, not a regex built from the URL (CodeQL js/incomplete-hostname-regexp).
+      const img = html.slice(html.indexOf('<img '));
+      expect(img.startsWith(`<img src="${CMS}/uploads/`)).toBe(true);
+      expect(img).toContain('" alt=""');
       expect(page.media[ids.cover!]?.url).toMatch(/^https:\/\/cms\.example\.com\/uploads\//);
       expect(page.blocks[1]!.posts!.map((p) => p.slug)).toEqual(['second', 'hello']);
       expect(page.seo).toMatchObject({
