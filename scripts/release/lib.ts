@@ -4,6 +4,7 @@
 export const NPM_REGISTRY = 'https://npm.pkg.github.com';
 export const REPOSITORY = 'bluepax/bluepax-cms';
 export const REPOSITORY_URL = `https://github.com/${REPOSITORY}`;
+export const IMAGE = 'ghcr.io/bluepax/bluepax-cms';
 
 export class ReleaseError extends Error {
   override name = 'ReleaseError';
@@ -116,6 +117,22 @@ export function releaseInfo(input: {
   };
 }
 
+/**
+ * Image tags of a release (chapter 11): `X.Y.Z`, `X.Y`, `X` and `latest`; a beta gets
+ * `X.0.0-beta.N` and `beta`. The first tag is the release's own.
+ */
+export function imageTags(info: Pick<ReleaseInfo, 'version' | 'prerelease'>): string[] {
+  if (info.prerelease) return [info.version, 'beta'];
+  const [major, minor] = info.version.split('.');
+  return [info.version, `${major}.${minor}`, `${major}`, 'latest'];
+}
+
+export interface ReleaseImage {
+  tags: string[];
+  /** Digest of the pushed multi-platform image, `sha256:…`. */
+  digest: string;
+}
+
 export interface WorkspacePackage {
   name: string;
   path: string;
@@ -157,8 +174,23 @@ export interface ChangeGroup {
   body: string;
 }
 
+function releaseImageLines(image: ReleaseImage): string[] {
+  const [own, ...others] = image.tags;
+  if (!own) throw new ReleaseError('the release image has no tags');
+  if (!/^sha256:[0-9a-f]{64}$/.test(image.digest)) {
+    throw new ReleaseError(`invalid image digest "${image.digest}"`);
+  }
+  const also = others.map((t) => `\`${t}\``).join(', ');
+  return [
+    `- \`${IMAGE}:${own}\`${also ? `, also tagged ${also}` : ''}`,
+    `- Digest: \`${image.digest}\``,
+    `- Pull by digest: \`docker pull ${IMAGE}@${image.digest}\``,
+  ];
+}
+
 export function releaseNotes(input: {
   info: ReleaseInfo;
+  image: ReleaseImage;
   packages: PublishedPackage[];
   changes: ChangeGroup[];
 }): string {
@@ -170,6 +202,10 @@ export function releaseNotes(input: {
     `- Codename: ${info.codename}`,
     `- Build: ${info.build}`,
     `- Commit: ${info.commit}`,
+    '',
+    '## Image',
+    '',
+    ...releaseImageLines(input.image),
     '',
     '## npm packages (GitHub Packages)',
     '',

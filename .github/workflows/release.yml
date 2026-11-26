@@ -3,7 +3,8 @@
 # GITHUB_TOKEN is used: no personal token is stored in the repository.
 # Any failed step stops the pipeline before the GitHub Release is created; re-running the
 # workflow for the same tag skips npm versions that were already published.
-# TODO: build and push the image to GHCR once the Dockerfile exists (deploy/).
+# The image goes to GHCR as ghcr.io/bluepax/bluepax-cms with the tags of chapter 11; its digest
+# is written into the release notes (docs/adr/0015).
 name: release
 
 on:
@@ -28,6 +29,7 @@ jobs:
       dist-tag: ${{ steps.info.outputs.dist-tag }}
       build: ${{ steps.info.outputs.build }}
       codename: ${{ steps.info.outputs.codename }}
+      image-tags: ${{ steps.info.outputs.image-tags }}
       json: ${{ steps.info.outputs.json }}
     steps:
       - uses: actions/checkout@v7
@@ -46,7 +48,22 @@ jobs:
 
   ci:
     needs: verify
+    # ci.yml's `edge` job (skipped for tags) asks for packages: write, so the call must allow it.
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/ci.yml
+
+  image:
+    needs: [verify, ci]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/image.yml
+    with:
+      tags: ${{ needs.verify.outputs.image-tags }}
+      version: ${{ needs.verify.outputs.version }}
+      build: ${{ needs.verify.outputs.build }}
 
   npm:
     needs: [verify, ci]
@@ -82,7 +99,7 @@ jobs:
         run: node scripts/release/npm.ts publish "${{ needs.verify.outputs.dist-tag }}" dist-npm
 
   release:
-    needs: [verify, npm]
+    needs: [verify, npm, image]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -97,6 +114,7 @@ jobs:
         env:
           RELEASE_INFO: ${{ needs.verify.outputs.json }}
           PUBLISHED_PACKAGES: ${{ needs.npm.outputs.packages }}
+          IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
         run: node scripts/release/notes.ts release-notes.md
       - name: create the GitHub Release
         env:

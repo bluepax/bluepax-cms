@@ -96,3 +96,16 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - run: pnpm check:licenses
+
+  # dev's newest build as the `edge` image (chapter 11, docs/adr/0015), once every check above
+  # passed. Pushes to dev run one after another (concurrency above), so `edge` follows dev in order.
+  edge:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev' && github.repository == 'bluepax/bluepax-cms'
+    needs: [commitlint, lint, typecheck, test, build, licenses]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/image.yml
+    with:
+      tags: edge
+      version: 0.0.0-development

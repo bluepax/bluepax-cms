@@ -4,6 +4,7 @@
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
 import {
+  imageTags,
   parseAnnotation,
   parseTag,
   ReleaseError,
@@ -70,6 +71,7 @@ function main(tag: string): void {
       codename: info.codename,
       description: info.description,
       commit: info.commit,
+      'image-tags': imageTags(info).join(' '),
       json: JSON.stringify(info),
     };
     appendFileSync(
