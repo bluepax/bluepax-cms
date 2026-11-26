@@ -47,6 +47,7 @@ import {
   setMediaUsages,
   type MediaContext,
   type UsageRef,
+  firstImageOf,
 } from '../media/library.ts';
 import {
   blockOffer,
@@ -475,6 +476,24 @@ function contentMediaUses(content: Pick<PageContent, 'seo' | 'blocks'>): MediaUs
 }
 
 /**
+ * Without an OG image in the SEO panel the page's first image stands in (chapter 3); its usage
+ * gets the purpose `og`, so the 1200×630 JPG that the Delivery API returns exists (chapter 5).
+ */
+async function withOgFallback<T extends MediaUse>(
+  db: Executor,
+  uses: readonly T[],
+  ogImage: string | null,
+): Promise<T[]> {
+  if (ogImage) return [...uses];
+  const first = await firstImageOf(
+    db,
+    uses.map((u) => u.ref.mediaId),
+  );
+  const index = uses.findIndex((u) => u.ref.mediaId === first);
+  return uses.map((u, i) => (i === index ? { ...u, ref: { ...u.ref, purpose: 'og' } } : u));
+}
+
+/**
  * Checks the media of a language's content and derives what they need (the OG image), before
  * the transaction. A media item that does not fit fails its form field with the reason.
  */
@@ -624,7 +643,7 @@ export async function createTranslation(
       (block) => ({ ...block, id: randomUUID() }) as Block,
     );
   }
-  const uses = blocksMediaUses(blocks);
+  const uses = await withOgFallback(ctx.db, blocksMediaUses(blocks), null);
   await prepareMedia(ctx, uses);
   try {
     await ctx.db.transaction(async (tx) => {
@@ -740,7 +759,7 @@ export async function saveTranslation(
     throw new PageError('invalid', { fields: [...new Set(errors)] });
   }
   const content: PageContent = { title, slug: input.slug, seo, blocks };
-  const uses = contentMediaUses(content);
+  const uses = await withOgFallback(ctx.db, contentMediaUses(content), content.seo.ogImage);
   await prepareMedia(ctx, uses);
 
   try {

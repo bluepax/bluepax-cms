@@ -12,7 +12,7 @@ const moduleBlocks = new Set<string>(Object.values(MODULE_BLOCKS).flat());
 
 // pages module (chapter 3): block pages per content language, with status, SEO fields and the
 // home page. Editors have every content action. Working copies, revisions and scheduled
-// publishing follow in M2, the Delivery endpoint `GET /pages/{slug}` with the Delivery API.
+// publishing follow in M2.
 export const pagesModule = defineModule({
   id: 'pages',
   version: '1.0.0',
@@ -25,6 +25,7 @@ export const pagesModule = defineModule({
     { name: PAGES_DELETE, kind: 'content' },
   ],
   menu: [{ label: 'nav_pages', href: '/pages', permission: PAGES_EDIT }],
+  endpoints: [{ method: 'GET', path: '/delivery/v1/pages/{slug}' }],
   // The standard blocks that need no optional module; catalog and regions provide theirs.
   blocks: BLOCK_KEYS.filter((key) => !moduleBlocks.has(key)),
   // TODO(M2): sent once webhooks exist (chapter 6, "Webhook 事件").

@@ -2,7 +2,7 @@ import { json, redirect } from '@sveltejs/kit';
 import { sequence, type Handle, type ServerInit } from '@sveltejs/kit/hooks';
 import { getTextDirection } from '#lib/paraglide/runtime.js';
 import { paraglideMiddleware } from '#lib/paraglide/server.js';
-import { isCrossSiteWrite, isMediaPath, isPublicPath } from '#lib/server/http.ts';
+import { isCrossSiteWrite, isMediaPath, isPublicPath, isTokenPath } from '#lib/server/http.ts';
 import { validateSession } from '#lib/server/modules/users/auth.ts';
 import { getDatabase, hasRole, isReady, startup } from '#lib/server/runtime.ts';
 import {
@@ -76,9 +76,9 @@ const setup: Handle = async ({ event, resolve }) => {
 const session: Handle = async ({ event, resolve }) => {
   event.locals.user = null;
   event.locals.sessionId = null;
-  // Media responses are public and cached for a long time: never look at or refresh the
-  // session there, so they never carry a Set-Cookie header.
-  if (isMediaPath(event.url.pathname)) return resolve(event);
+  // Media responses are public and cached for a long time, API requests carry tokens: never
+  // look at or refresh the session there, so they never carry a Set-Cookie header.
+  if (isMediaPath(event.url.pathname) || isTokenPath(event.url.pathname)) return resolve(event);
   const token = event.cookies.get(SESSION_COOKIE);
   if (token) {
     const valid = await validateSession(getDatabase(), token, new Date());

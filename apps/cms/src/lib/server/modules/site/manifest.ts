@@ -14,6 +14,7 @@ export const siteModule = defineModule({
   migrations: 'site',
   permissions: [{ name: 'site.manage', kind: 'settings' }],
   menu: [{ label: 'nav_settings', href: '/settings', permission: 'site.manage' }],
+  endpoints: [{ method: 'GET', path: '/delivery/v1/site' }],
   // TODO(M2): emitted on settings, navigation and footer changes once webhooks exist.
   webhookEvents: ['site.updated'],
   settings: { ...SITE_DATA_DEFAULTS, 'site.smtp': null },

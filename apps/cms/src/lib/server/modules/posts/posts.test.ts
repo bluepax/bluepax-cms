@@ -475,7 +475,8 @@ describe.skipIf(!baseUrl)('posts module', { timeout: 30_000 }, () => {
     });
     const usages = (await usagesOf(db, imageId)).filter((u) => u.targetId === id);
     expect(usages.map((u) => [u.field, u.locale, u.purpose]).sort()).toEqual([
-      ['cover', '', 'default'],
+      // The cover stands in for missing OG images, so its 1200×630 JPG is derived too.
+      ['cover', '', 'og'],
       ['seo.ogImage', 'en', 'og'],
     ]);
     expect((await usagesOf(db, otherImageId)).find((u) => u.targetId === id)).toMatchObject({

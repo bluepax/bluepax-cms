@@ -982,6 +982,18 @@ export async function setMediaUsages(
   );
 }
 
+/** The first of the given media items that is an image, e.g. the fallback OG image of a page. */
+export async function firstImageOf(db: Executor, ids: readonly string[]): Promise<string | null> {
+  const wanted = [...new Set(ids.filter((id) => z.uuid().safeParse(id).success))];
+  if (wanted.length === 0) return null;
+  const rows = await db
+    .select({ id: schema.media.id })
+    .from(schema.media)
+    .where(and(inArray(schema.media.id, wanted), eq(schema.media.kind, 'image')));
+  const images = new Set(rows.map((r) => r.id));
+  return wanted.find((id) => images.has(id)) ?? null;
+}
+
 /** Removes the usages of a record (or of one language of it), e.g. when the record is deleted. */
 export async function clearMediaUsages(tx: Executor, target: UsageTarget): Promise<void> {
   await tx

@@ -177,6 +177,7 @@ describe.skipIf(!baseUrl)('route templates and path resolution', { timeout: 30_0
       route: 'home',
       id: ids.home,
       locale: 'en',
+      slug: 'start',
       path: '/en',
       alternates: { en: '/en', 'zh-CN': '/zh-cn' },
     });
@@ -194,6 +195,7 @@ describe.skipIf(!baseUrl)('route templates and path resolution', { timeout: 30_0
       route: 'page',
       id: ids.about,
       locale: 'en',
+      slug: 'about',
       path: '/en/about',
       alternates: { en: '/en/about', ar: '/ar/about' },
     });
@@ -206,6 +208,7 @@ describe.skipIf(!baseUrl)('route templates and path resolution', { timeout: 30_0
       route: 'post',
       id: ids.hello,
       locale: 'zh-CN',
+      slug: 'nihao',
       path: '/zh-cn/blog/nihao',
       alternates: { en: '/en/blog/hello', 'zh-CN': '/zh-cn/blog/nihao' },
     });
@@ -219,6 +222,7 @@ describe.skipIf(!baseUrl)('route templates and path resolution', { timeout: 30_0
       route: 'postCategory',
       id: ids.news,
       locale: 'ar',
+      slug: 'akhbar',
       path: '/ar/blog/category/akhbar',
       alternates: { en: '/en/blog/category/news', ar: '/ar/blog/category/akhbar' },
     });
