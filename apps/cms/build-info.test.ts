@@ -32,6 +32,22 @@ describe('buildInfo', () => {
     });
   });
 
+  it('treats empty values like missing ones', () => {
+    const git = (args: string[]) => (args[0] === 'rev-list' ? '42' : 'def456');
+    const env = {
+      BLUEPAX_VERSION: '',
+      BLUEPAX_BUILD: '',
+      BLUEPAX_COMMIT: '',
+      BLUEPAX_BUILT_AT: '',
+    };
+    expect(buildInfo(env, git, fixedNow)).toEqual({
+      version: '0.0.0-development',
+      build: 42,
+      commit: 'def456',
+      builtAt: '2026-11-24T00:00:00.000Z',
+    });
+  });
+
   it('still builds outside a git checkout', () => {
     const git = () => {
       throw new Error('not a git repository');

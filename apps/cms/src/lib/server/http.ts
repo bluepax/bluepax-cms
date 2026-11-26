@@ -33,6 +33,38 @@ export function isCrossSiteWrite(request: Request, url: URL): boolean {
   return site !== 'same-origin';
 }
 
+/**
+ * Largest request body outside the media upload forms (docs/adr/0015). adapter-node's
+ * BODY_SIZE_LIMIT has to allow the largest upload for every route, so other routes are held
+ * to this smaller limit by their declared Content-Length; bodies without one stay capped by
+ * BODY_SIZE_LIMIT.
+ */
+export const FORM_BODY_LIMIT = 10 * 1024 * 1024;
+
+/** The media library and a media item's page: their forms upload and replace files. */
+export function isUploadPath(pathname: string): boolean {
+  if (pathname === '/media') return true;
+  if (!pathname.startsWith('/media/')) return false;
+  const rest = pathname.slice('/media/'.length);
+  return rest.length > 0 && !rest.includes('/');
+}
+
+/** True when a request declares a body larger than its route accepts. */
+export function isOversizedBody(request: Request, url: URL): boolean {
+  if (isUploadPath(url.pathname)) return false;
+  const length = request.headers.get('content-length');
+  return length !== null && Number(length) > FORM_BODY_LIMIT;
+}
+
+/** adapter-node's reading of BODY_SIZE_LIMIT: bytes, or a number with K, M or G. */
+export function parseBodySizeLimit(value: string | undefined): number {
+  const raw = (value ?? '512K').trim();
+  const unit = ({ K: 1024, M: 1024 ** 2, G: 1024 ** 3 } as Record<string, number>)[
+    raw.slice(-1).toUpperCase()
+  ];
+  return Number(unit ? raw.slice(0, -1) : raw) * (unit ?? 1);
+}
+
 export function clientIp(event: RequestEvent): string | null {
   try {
     return event.getClientAddress();

@@ -2,7 +2,13 @@ import { json, redirect } from '@sveltejs/kit';
 import { sequence, type Handle, type ServerInit } from '@sveltejs/kit/hooks';
 import { getTextDirection } from '#lib/paraglide/runtime.js';
 import { paraglideMiddleware } from '#lib/paraglide/server.js';
-import { isCrossSiteWrite, isMediaPath, isPublicPath, isTokenPath } from '#lib/server/http.ts';
+import {
+  isCrossSiteWrite,
+  isMediaPath,
+  isOversizedBody,
+  isPublicPath,
+  isTokenPath,
+} from '#lib/server/http.ts';
 import { validateSession } from '#lib/server/modules/users/auth.ts';
 import { getDatabase, hasRole, isReady, startup } from '#lib/server/runtime.ts';
 import {
@@ -41,6 +47,20 @@ const securityHeaders: Handle = async ({ event, resolve }) => {
 const webRole: Handle = ({ event, resolve }) => {
   if (!hasRole('web') && event.url.pathname !== '/api/health') {
     return new Response('Not Found', { status: 404 });
+  }
+  return resolve(event);
+};
+
+/** Only the media upload forms take bodies up to BODY_SIZE_LIMIT (docs/adr/0015). */
+const bodyLimit: Handle = ({ event, resolve }) => {
+  if (isOversizedBody(event.request, event.url)) {
+    if (event.url.pathname.startsWith('/api/')) {
+      return json(
+        { error: { code: 'payload_too_large', message: 'Request body too large' } },
+        { status: 413 },
+      );
+    }
+    return new Response('Payload Too Large', { status: 413 });
   }
   return resolve(event);
 };
@@ -119,4 +139,13 @@ const i18n: Handle = ({ event, resolve }) =>
     ),
   );
 
-export const handle: Handle = sequence(securityHeaders, webRole, csrf, setup, session, guard, i18n);
+export const handle: Handle = sequence(
+  securityHeaders,
+  webRole,
+  bodyLimit,
+  csrf,
+  setup,
+  session,
+  guard,
+  i18n,
+);
