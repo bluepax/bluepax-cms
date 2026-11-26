@@ -51,7 +51,7 @@ import {
   resolutionSchema,
   siteSchema,
   termListSchema,
-} from './contract.ts';
+} from '@bluepax/cms-client/contract';
 import { handleDeliveryRequest, type DeliveryDeps } from './http.ts';
 import { openApiDocument } from './openapi.ts';
 import { OPERATIONS } from './operations.ts';

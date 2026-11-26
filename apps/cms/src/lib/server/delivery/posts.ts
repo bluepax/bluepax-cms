@@ -16,7 +16,7 @@ import type {
   PostSummary,
   Term,
   TermRef,
-} from './contract.ts';
+} from '@bluepax/cms-client/contract';
 import {
   iso,
   notFound,

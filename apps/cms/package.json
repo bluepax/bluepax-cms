@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@bluepax/cms-blocks": "workspace:*",
+    "@bluepax/cms-client": "workspace:*",
     "@bluepax/core": "workspace:*",
     "@bluepax/db": "workspace:*",
     "@bluepax/presets": "workspace:*",

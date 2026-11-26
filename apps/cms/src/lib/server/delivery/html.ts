@@ -4,7 +4,7 @@
 // the targets the editor accepts and images come from the media library. No dependency, so
 // there is nothing to sanitise afterwards.
 import { isLinkUrl } from '@bluepax/cms-blocks';
-import type { Media } from './contract.ts';
+import type { Media } from '@bluepax/cms-client/contract';
 
 const ESCAPES: Record<string, string> = {
   '&': '&amp;',

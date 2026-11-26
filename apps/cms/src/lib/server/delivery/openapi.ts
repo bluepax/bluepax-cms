@@ -2,7 +2,7 @@
 // generated from the operations table and the Zod contract: `GET /api/delivery/v1/openapi.json`.
 // Its title is "BluePax CMS" (chapter 1).
 import { z } from 'zod';
-import { errorSchema } from './contract.ts';
+import { errorSchema } from '@bluepax/cms-client/contract';
 import { OPERATIONS } from './operations.ts';
 
 const ERRORS: Record<string, string> = {

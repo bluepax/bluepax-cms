@@ -3,31 +3,9 @@
 // custom HTML block. These Zod schemas are the single definition, and the JSON Schemas of the
 // published package are generated from them (docs/adr/0009).
 import { z } from 'zod';
+import type { BlockKey } from './keys.ts';
 import { isLinkUrl, LINK_MAX_LENGTH } from './links.ts';
 import { richTextMedia, richTextSchema, type RichTextDoc } from './rich-text.ts';
-
-/** Block keys in the order of the spec's table. */
-export const BLOCK_KEYS = [
-  'hero', // 1
-  'text-media', // 2
-  'cards', // 3
-  'steps', // 4
-  'stats', // 5
-  'logos', // 6
-  'category-entry', // 7, needs catalog
-  'catalog-list', // 8, needs catalog
-  'featured-posts', // 9
-  'service-network', // 10, needs regions
-  'latest-posts', // 11
-  'contact-cta', // 12
-  'rich-text', // 13
-] as const;
-
-export type BlockKey = (typeof BLOCK_KEYS)[number];
-
-export function isBlockKey(value: string): value is BlockKey {
-  return (BLOCK_KEYS as readonly string[]).includes(value);
-}
 
 const text = (max: number) => z.string().trim().max(max).default('');
 /** A media item (its ID), or null for none. */

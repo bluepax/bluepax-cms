@@ -239,6 +239,9 @@ importers:
       '@bluepax/cms-blocks':
         specifier: workspace:*
         version: link:../../packages/cms-blocks
+      '@bluepax/cms-client':
+        specifier: workspace:*
+        version: link:../../packages/cms-client
       '@bluepax/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -352,6 +355,15 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
 
+  packages/cms-client:
+    dependencies:
+      '@bluepax/cms-blocks':
+        specifier: workspace:*
+        version: link:../cms-blocks
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+
   packages/core: {}
 
   packages/db:
@@ -375,6 +387,9 @@ importers:
       '@bluepax/cms-blocks':
         specifier: workspace:*
         version: link:../cms-blocks
+      '@bluepax/cms-client':
+        specifier: workspace:*
+        version: link:../cms-client
       '@bluepax/core':
         specifier: workspace:*
         version: link:../core

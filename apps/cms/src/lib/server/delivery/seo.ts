@@ -7,7 +7,7 @@ import { absoluteUrl, routePath } from '@bluepax/presets';
 import { and, eq } from 'drizzle-orm';
 import { entryPath, type RoutableType } from '../content/routes.ts';
 import { readSiteData } from '../modules/site/settings.ts';
-import type { Media, OgImage, Publisher, Seo } from './contract.ts';
+import type { Media, OgImage, Publisher, Seo } from '@bluepax/cms-client/contract';
 import type { DeliveryContext } from './context.ts';
 import { ogImageOf } from './media.ts';
 
