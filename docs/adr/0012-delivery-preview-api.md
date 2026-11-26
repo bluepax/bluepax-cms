@@ -137,7 +137,7 @@ path, alternates }`、`{ status: 301, location }` 或 `{ status: 404 }`（M2 增
 - `GET /api/delivery/v1/openapi.json`（OpenAPI 3.1，标题“BluePax CMS”，第 1 章）由操作表与 `delivery/contract.ts`
   中的 Zod 响应 schema 生成（`z.toJSONSchema` + `.meta({ id })` 生成 `components.schemas`），不需要 Token：它描述的是
   接口而不是实例内容。集成测试用同一组 Zod schema 解析真实响应，文档与行为不会脱节（第 12 章契约测试）。contract 只依赖
-  Zod，`@bluepax/cms-client` 可以直接接过这些类型。
+  Zod，`@bluepax/cms-client` 可以直接接过这些类型（已移到 `@bluepax/cms-client/contract`，见 0013）。
 - **调试界面**：没有引入 Swagger UI、Scalar 等库（体积大，还要放宽管理界面的 CSP）。“接入与 API”页面自带一个调试台：
   按操作表列出端点与参数，管理员粘贴一个 Token 后从页面直接调用真实接口（同源，走完整的鉴权、限速与 CORS），显示状态、
   主要响应头与 JSON。Token 只在页面内存中，不保存。
