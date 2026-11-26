@@ -1,7 +1,9 @@
-// The Delivery API contract (docs/spec/README.md chapter 6, docs/adr/0012): Zod schemas of every
-// response. The OpenAPI 3.1 document is generated from them and the contract tests parse real
-// responses with them, so documentation and behaviour cannot drift apart. Pure Zod without
-// server imports, so `@bluepax/cms-client` can take these types over.
+// The Delivery API contract (docs/spec/README.md chapter 6, docs/adr/0012, 0013): Zod schemas of
+// every response, published as `@bluepax/cms-client/contract`. The CMS generates its OpenAPI 3.1
+// document from them and parses real responses with them in its contract tests, and the client's
+// types are inferred from them, so documentation, behaviour and SDK types share one source
+// (chapter 12). Pure Zod, no server imports. Importing this module registers the schemas, with
+// their `.meta({ id })`, in Zod's global registry.
 import { z } from 'zod';
 
 const isoDate = z.iso.datetime({ offset: true }).describe('ISO 8601, UTC');
@@ -325,7 +327,9 @@ export const previewSchema = z
   ])
   .meta({ id: 'Preview' });
 
+export type ErrorBody = z.infer<typeof errorSchema>;
 export type Media = z.infer<typeof mediaSchema>;
+export type MediaVariant = z.infer<typeof mediaVariantSchema>;
 export type OgImage = z.infer<typeof ogImageSchema>;
 export type Seo = z.infer<typeof seoSchema>;
 export type TermRef = z.infer<typeof termRefSchema>;
@@ -340,6 +344,10 @@ export type Publisher = z.infer<typeof publisherSchema>;
 export type Site = z.infer<typeof siteSchema>;
 export type Resolution = z.infer<typeof resolutionSchema>;
 export type Preview = z.infer<typeof previewSchema>;
+export type BlockSchemas = z.infer<typeof blockSchemasSchema>;
+export type PostList = z.infer<typeof postListSchema>;
+export type TermList = z.infer<typeof termListSchema>;
+export type AuthorList = z.infer<typeof authorListSchema>;
 export interface List<T> {
   items: T[];
   page: number;

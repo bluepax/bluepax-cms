@@ -14,6 +14,9 @@ apps/cms/            SvelteKit app: admin UI, all APIs and the startup entry
 packages/core/       module manifests and registry, permissions, events (private)
 packages/db/         Drizzle schema and migration sets (private)
 packages/presets/    corporate and blog presets, instance config format (private)
+packages/storage/    storage drivers: local (private)
+packages/cms-blocks/ block and rich text schemas, published as @bluepax/cms-blocks
+packages/cms-client/ typed Delivery API SDK and the API contract, published as @bluepax/cms-client
 examples/config/     fictional instance config files
 deploy/dev/          development database (docker compose)
 docs/spec/           the specification
@@ -22,7 +25,10 @@ scripts/             repository tooling: license gate, release scripts
 ```
 
 Packages that are not published are marked `"private": true`. Only `@bluepax/cms-client` and
-`@bluepax/cms-blocks` are published, to GitHub Packages.
+`@bluepax/cms-blocks` are published, to GitHub Packages. In the workspace their `exports` point at
+the TypeScript sources; `pnpm build` writes `dist/` and `publishConfig.exports` points the packed
+package there (docs/adr/0013). The Delivery API's response schemas live in
+`packages/cms-client/src/contract.ts`: the CMS generates its OpenAPI document from them.
 
 ## Development setup
 

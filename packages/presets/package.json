@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@bluepax/cms-blocks": "workspace:*",
+    "@bluepax/cms-client": "workspace:*",
     "@bluepax/core": "workspace:*",
     "yaml": "^2.9.1",
     "zod": "^4.6.7"

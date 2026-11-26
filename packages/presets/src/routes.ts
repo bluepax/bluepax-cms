@@ -3,6 +3,7 @@
 // webhook paths) and resolves paths with them; the frontend implements its routes from the same
 // templates, which `GET /site` delivers. They live in the `frontend` configuration section.
 // No Zod here: the admin's browser code imports this file (`@bluepax/presets/routes`).
+import { routePath } from '@bluepax/cms-client/routes';
 import { isSlug } from '@bluepax/core';
 
 export const ROUTE_PLACEHOLDERS = ['{locale}', '{slug}', '{type}', '{category}'] as const;
@@ -203,34 +204,10 @@ export function routeFixedSegments(templates: RouteTemplates = DEFAULT_ROUTE_TEM
   return [...segments].sort();
 }
 
-/** Values of the placeholders; the language is written in lowercase (`zh-CN` → `zh-cn`). */
-export interface RouteValues {
-  locale: string;
-  slug?: string;
-  type?: string;
-  category?: string;
-}
-
-/** The address a template gives, e.g. `/zh-cn/blog/hello` (chapter 6: always lowercase). */
-export function routePath(template: string, values: RouteValues): string {
-  return template
-    .split('/')
-    .map((segment) => {
-      switch (segment) {
-        case '{locale}':
-          return values.locale.toLowerCase();
-        case '{slug}':
-          return values.slug ?? '';
-        case '{type}':
-          return values.type ?? '';
-        case '{category}':
-          return values.category ?? '';
-        default:
-          return segment;
-      }
-    })
-    .join('/');
-}
+// Frontends fill templates with the same function, so it lives in the published SDK
+// (docs/adr/0013): the address a template gives, e.g. `/zh-cn/blog/hello` (chapter 6: always
+// lowercase).
+export { routePath, type RouteValues } from '@bluepax/cms-client/routes';
 
 /** The frontend address of a content item in one language. */
 export function contentPath(

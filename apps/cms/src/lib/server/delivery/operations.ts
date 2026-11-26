@@ -20,7 +20,7 @@ import {
   siteSchema,
   termListSchema,
   type Preview,
-} from './contract.ts';
+} from '@bluepax/cms-client/contract';
 import { DeliveryError, notFound, type DeliveryContext } from './context.ts';
 import { getPage, pageForPreview } from './pages.ts';
 import { getAuthor, getPost, listAuthors, listPosts, listTerms, postForPreview } from './posts.ts';

@@ -37,7 +37,7 @@
 pnpm add @bluepax/cms-client @bluepax/cms-blocks
 ```
 
-详见[设计规范](docs/spec/README.md)第 6 章。
+详见 [SDK 说明](packages/cms-client/README.zh-CN.md)与[设计规范](docs/spec/README.md)第 6 章。
 
 ## 文档
 

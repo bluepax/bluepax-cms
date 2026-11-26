@@ -15,7 +15,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import { addressesOf, entryPath } from '../content/routes.ts';
 import { log } from '../log.ts';
 import { blockOffer } from '../modules/pages/blocks.ts';
-import type { DeliveredBlock, Page } from './contract.ts';
+import type { DeliveredBlock, Page } from '@bluepax/cms-client/contract';
 import { iso, notFound, requestLocale, type DeliveryContext } from './context.ts';
 import { richTextHtml } from './html.ts';
 import { compact, publishedPostSummaries } from './posts.ts';

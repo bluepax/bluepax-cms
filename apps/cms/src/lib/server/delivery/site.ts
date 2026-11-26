@@ -9,7 +9,7 @@ import { addressesOf, type RoutableType } from '../content/routes.ts';
 import { UPLOADS_PATH } from '../modules/media/files.ts';
 import { listNav, type NavNode } from '../modules/site/navigation.ts';
 import { readSiteData } from '../modules/site/settings.ts';
-import type { NavItem, Site } from './contract.ts';
+import type { NavItem, Site } from '@bluepax/cms-client/contract';
 import { requestLocale, type DeliveryContext } from './context.ts';
 import { absoluteMediaUrl } from './media.ts';
 import { resolvePublisher } from './seo.ts';

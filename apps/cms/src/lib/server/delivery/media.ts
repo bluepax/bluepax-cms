@@ -4,7 +4,7 @@
 import type { Executor } from '@bluepax/db';
 import type { StorageDriver } from '@bluepax/storage';
 import { getMediaViews, type MediaView } from '../modules/media/library.ts';
-import type { Media, OgImage } from './contract.ts';
+import type { Media, OgImage } from '@bluepax/cms-client/contract';
 
 export function absoluteMediaUrl(origin: string, url: string): string {
   return new URL(url, origin).toString();

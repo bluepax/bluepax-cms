@@ -40,7 +40,8 @@ GitHub Packages needs a token even for public packages: locally a personal acces
 pnpm add @bluepax/cms-client @bluepax/cms-blocks
 ```
 
-See chapter 6 of the [specification](docs/spec/README.md).
+See the [SDK's README](packages/cms-client/README.md) and chapter 6 of the
+[specification](docs/spec/README.md).
 
 ## Documentation
 
