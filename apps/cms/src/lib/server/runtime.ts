@@ -1,6 +1,7 @@
-// Process startup, see docs/spec/README.md chapter 9 ("启动顺序"): take the advisory
-// lock, apply pending migrations, release the lock, then start the configured roles.
-// Any failure throws, so the process exits instead of serving traffic.
+// Process startup, see docs/spec/README.md chapter 9 ("启动顺序") and docs/adr/0015: take
+// the advisory lock, back up the database when migrations are pending, apply them, release
+// the lock, then start the configured roles. Any failure throws, so the process exits
+// before adapter-node listens and never serves traffic.
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
@@ -12,16 +13,22 @@ import {
   type Pool,
 } from '@bluepax/db';
 import { parseConfigYaml } from '@bluepax/presets';
+import { dev } from '$app/env';
 import { createLocalDriver, DEFAULT_LOCAL_ROOT, type StorageDriver } from '@bluepax/storage';
 import {
   APP_SECRET,
+  BLUEPAX_BACKUPS_DIR,
   BLUEPAX_CONFIG_FILE,
   BLUEPAX_MIGRATIONS_DIR,
   BLUEPAX_ROLES,
   BLUEPAX_UPLOADS_DIR,
+  BODY_SIZE_LIMIT,
   DATABASE_URL,
   ENCRYPTION_KEY,
+  ORIGIN,
 } from '$app/env/private';
+import { backupBeforeMigrate, DEFAULT_BACKUPS_DIR, finishPendingUpgrade } from './backups.ts';
+import { parseBodySizeLimit } from './http.ts';
 import { initializeInstance, instanceState } from './instance.ts';
 import { log } from './log.ts';
 import { migrationSetNames, registry } from './modules.ts';
@@ -94,14 +101,73 @@ async function initializeFromConfigFile(): Promise<void> {
   });
 }
 
-export async function startup(): Promise<void> {
-  // Fail before serving when a required secret is missing.
-  signingKey('startup-check');
-  encryptionKey();
+/** Smallest BODY_SIZE_LIMIT that fits the default video upload limit (chapter 13). */
+const MIN_BODY_SIZE_LIMIT = 200 * 1024 * 1024;
+
+/** Settings adapter-node reads itself and a production instance cannot do without. */
+function checkDeployment(): void {
+  if (dev) return;
+  if (!ORIGIN) {
+    // Without it adapter-node trusts the Host header: media URLs in the Delivery API would
+    // point at whatever host a request names (docs/adr/0012, 0015).
+    throw new Error(
+      'ORIGIN is not set: set it to the public URL of the CMS, e.g. https://cms.example.com',
+    );
+  }
+  const limit = parseBodySizeLimit(BODY_SIZE_LIMIT);
+  if (!(limit >= MIN_BODY_SIZE_LIMIT)) {
+    log('warn', 'BODY_SIZE_LIMIT is below 200 MB: larger media uploads will fail', {
+      BODY_SIZE_LIMIT: BODY_SIZE_LIMIT ?? '512K (adapter-node default)',
+    });
+  }
+}
+
+/** Where pre-migration backups go; `vite dev` only backs up when the folder is set. */
+function backupsDir(): string | undefined {
+  return BLUEPAX_BACKUPS_DIR ?? (dev ? undefined : DEFAULT_BACKUPS_DIR);
+}
+
+async function migrate(): Promise<void> {
   const root = BLUEPAX_MIGRATIONS_DIR ?? resolve('../../packages/db/migrations');
-  const applied = await runMigrations(getPool(), migrationSets(root, migrationSetNames()));
-  // TODO(M2): take a full database backup in `beforeMigrate` once backups exist.
+  const dir = backupsDir();
+  const applied = await runMigrations(getPool(), migrationSets(root, migrationSetNames()), {
+    beforeMigrate: async (pending, { fresh }) => {
+      if (!dir) {
+        log('warn', 'migrating without a backup: BLUEPAX_BACKUPS_DIR is not set', { pending });
+        return;
+      }
+      log('info', 'migrations pending, backing up the database first', { pending });
+      const backup = await backupBeforeMigrate({
+        dir,
+        databaseUrl: DATABASE_URL ?? '',
+        pending,
+        fresh,
+      });
+      log('info', `backup before migrating: ${backup.action}`, { ...backup });
+    },
+  });
   if (applied.length > 0) log('info', 'migrations applied', { sets: applied });
-  await initializeFromConfigFile();
+}
+
+export async function startup(): Promise<void> {
+  try {
+    checkDeployment();
+    // Fail before serving when a required secret is missing.
+    signingKey('startup-check');
+    encryptionKey();
+    await migrate();
+    await initializeFromConfigFile();
+    const dir = backupsDir();
+    if (dir) await finishPendingUpgrade(dir);
+  } catch (error) {
+    // Drizzle wraps the database's own message (e.g. a failed migration) in `cause`.
+    const cause = error instanceof Error && error.cause instanceof Error ? error.cause.message : '';
+    log('error', 'startup failed, not serving', {
+      error: error instanceof Error ? error.message : String(error),
+      ...(cause ? { cause } : {}),
+    });
+    throw error;
+  }
+  // The worker role has no jobs yet: packages/jobs and pg-boss come with the first one (M2).
   log('info', 'started', { roles: [...BLUEPAX_ROLES], build: __BLUEPAX_BUILD_INFO__ });
 }

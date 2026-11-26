@@ -52,6 +52,16 @@ async function pendingFor(client: PoolClient, set: MigrationSet): Promise<number
   return files.filter((f) => f.folderMillis > lastAt).length;
 }
 
+/** True when none of the sets has its migrations table yet. */
+async function isFresh(client: PoolClient, sets: readonly MigrationSet[]): Promise<boolean> {
+  const names = sets.map((set) => `${MIGRATIONS_SCHEMA}.${tableFor(set)}`);
+  const result = await client.query<{ fresh: boolean }>(
+    'select bool_and(to_regclass(name) is null) as fresh from unnest($1::text[]) as name',
+    [names],
+  );
+  return result.rows[0]?.fresh ?? true;
+}
+
 async function withLock<T>(pool: Pool, fn: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await pool.connect();
   try {
@@ -80,12 +90,20 @@ export async function pendingMigrations(
   }
 }
 
+export interface BeforeMigrateContext {
+  /**
+   * True when no migration set was ever applied: the database is new and holds nothing a
+   * backup could protect (the first start of an instance).
+   */
+  fresh: boolean;
+}
+
 export interface RunMigrationsOptions {
   /**
    * Called while holding the lock, only when there is something to apply.
-   * Used to take a full database backup before migrating.
+   * Used to take a full database backup before migrating; a throw stops the migration.
    */
-  beforeMigrate?: (pending: PendingMigrations[]) => Promise<void>;
+  beforeMigrate?: (pending: PendingMigrations[], context: BeforeMigrateContext) => Promise<void>;
 }
 
 /**
@@ -105,7 +123,7 @@ export async function runMigrations(
     }
     if (pending.length === 0) return pending;
 
-    await options.beforeMigrate?.(pending);
+    await options.beforeMigrate?.(pending, { fresh: await isFresh(client, sets) });
     const db = drizzle({ client });
     for (const set of sets) {
       if (!pending.some((p) => p.name === set.name)) continue;

@@ -44,6 +44,8 @@ describe.skipIf(!baseUrl)('runMigrations', () => {
     expect(applied).toHaveLength(1);
     expect(applied[0]).toEqual([{ name: 'core', count: 2 }]);
     expect(beforeMigrate).toHaveBeenCalledTimes(1);
+    // Nothing was applied before: a new database needs no backup.
+    expect(beforeMigrate).toHaveBeenCalledWith([{ name: 'core', count: 2 }], { fresh: true });
 
     const p = pool();
     expect(await pendingMigrations(p, sets)).toEqual([{ name: 'core', count: 0 }]);
@@ -59,6 +61,25 @@ describe.skipIf(!baseUrl)('runMigrations', () => {
       'settings',
       'users',
     ]);
+  });
+
+  it('tells the backup that a database with applied migrations is not fresh', async () => {
+    // `media` comes right after `core` and only depends on it.
+    const beforeMigrate = vi.fn(async () => {});
+    const applied = await runMigrations(pool(), migrationSets(root, ['media']), { beforeMigrate });
+    expect(applied.map((p) => p.name)).toEqual(['media']);
+    expect(beforeMigrate).toHaveBeenCalledWith(applied, { fresh: false });
+  });
+
+  it('stops before migrating when the backup fails', async () => {
+    const sets = migrationSets(root, ['media', 'pages']);
+    const beforeMigrate = vi.fn(async () => {
+      throw new Error('disk full');
+    });
+    const before = await pendingMigrations(pool(), sets);
+    expect(before.find((p) => p.name === 'pages')?.count).toBeGreaterThan(0);
+    await expect(runMigrations(pool(), sets, { beforeMigrate })).rejects.toThrow('disk full');
+    expect(await pendingMigrations(pool(), sets)).toEqual(before);
   });
 
   it('does nothing when the database is up to date', async () => {

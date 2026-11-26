@@ -19,10 +19,11 @@ packages/cms-blocks/ block and rich text schemas, published as @bluepax/cms-bloc
 packages/cms-client/ typed Delivery API SDK and the API contract, published as @bluepax/cms-client
 examples/config/     fictional instance config files
 examples/minimal-site/ minimal SvelteKit frontend that only uses @bluepax/cms-client (private)
+deploy/              image (Dockerfile), docker compose quick start, gateway examples (deploy/README.md)
 deploy/dev/          development database (docker compose)
 docs/spec/           the specification
 docs/adr/            architecture decision records
-scripts/             repository tooling: license gate, release scripts
+scripts/             repository tooling: license gate, release scripts, third-party notices
 ```
 
 Packages that are not published are marked `"private": true`. Only `@bluepax/cms-client` and

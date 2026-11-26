@@ -42,6 +42,25 @@ export const variables = defineEnvVars({
       'Root folder of the local media storage (chapter 5); defaults to /data/uploads, the uploads volume',
     schema: (value) => value || undefined,
   },
+  BLUEPAX_BACKUPS_DIR: {
+    description:
+      'Folder for database backups (chapter 9); defaults to /data/backups, the backups volume. ' +
+      'Without it `vite dev` migrates without a backup',
+    schema: (value) => value || undefined,
+  },
+  // Read by adapter-node itself; declared here so startup can check them (docs/adr/0015).
+  ORIGIN: {
+    description:
+      'Public URL of the CMS, e.g. https://cms.example.com (required in production): media URLs ' +
+      'and the CSRF check use it',
+    schema: (value) => value || undefined,
+  },
+  BODY_SIZE_LIMIT: {
+    description:
+      'Largest request body adapter-node accepts, e.g. 256M (the image default); must exceed ' +
+      'the largest upload limit',
+    schema: (value) => value || undefined,
+  },
   BLUEPAX_MIGRATIONS_DIR: {
     description:
       'Folder with the migration sets; defaults to packages/db/migrations in the repository',

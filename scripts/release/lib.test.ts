@@ -6,6 +6,7 @@ import {
   parseAnnotation,
   parseTag,
   releaseInfo,
+  imageTags,
   releaseNotes,
 } from './lib.ts';
 
@@ -109,6 +110,24 @@ describe('checkPublishable', () => {
   });
 });
 
+describe('imageTags', () => {
+  it('tags a release with its version, minor, major and latest', () => {
+    expect(imageTags({ version: '1.2.3', prerelease: false })).toEqual([
+      '1.2.3',
+      '1.2',
+      '1',
+      'latest',
+    ]);
+  });
+
+  it('tags a beta with its version and beta only', () => {
+    expect(imageTags({ version: '2.0.0-beta.512', prerelease: true })).toEqual([
+      '2.0.0-beta.512',
+      'beta',
+    ]);
+  });
+});
+
 describe('releaseNotes', () => {
   const info = releaseInfo({
     tag: 'v1.0.0-beta.9',
@@ -117,10 +136,13 @@ describe('releaseNotes', () => {
     commit: 'abc123',
     previous: [],
   });
+  const digest = `sha256:${'a1'.repeat(32)}`;
+  const image = { tags: imageTags(info), digest };
 
   it('lists version, packages and grouped changes', () => {
     const notes = releaseNotes({
       info,
+      image,
       packages: [
         {
           name: '@bluepax/cms-client',
@@ -136,6 +158,11 @@ describe('releaseNotes', () => {
     });
     expect(notes).toContain('- Build: 9');
     expect(notes).toContain(
+      '## Image\n\n- `ghcr.io/bluepax/bluepax-cms:1.0.0-beta.9`, also tagged `beta`\n' +
+        `- Digest: \`${digest}\``,
+    );
+    expect(notes.indexOf('## Image')).toBeLessThan(notes.indexOf('## npm packages'));
+    expect(notes).toContain(
       '[`@bluepax/cms-client@1.0.0-beta.9`](https://github.com/bluepax/bluepax-cms/pkgs/npm/cms-client), dist-tag `beta`',
     );
     expect(notes).toContain('### npm: cms-client\n\nNo changes, version synced only.');
@@ -143,9 +170,15 @@ describe('releaseNotes', () => {
   });
 
   it('says so when there are no npm packages', () => {
-    expect(releaseNotes({ info, packages: [], changes: [] })).toContain(
+    expect(releaseNotes({ info, image, packages: [], changes: [] })).toContain(
       'No npm packages in this release.',
     );
+  });
+
+  it('refuses a release without a valid image digest', () => {
+    expect(() =>
+      releaseNotes({ info, image: { ...image, digest: '' }, packages: [], changes: [] }),
+    ).toThrow(/image digest/);
   });
 
   it('builds package page links without the scope', () => {

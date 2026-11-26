@@ -20,6 +20,8 @@ export function buildInfo(
   git: Git = defaultGit,
   now: () => Date = () => new Date(),
 ): BuildInfo {
+  // Docker passes build arguments that were not given as empty strings.
+  const value = (name: string): string | undefined => env[name] || undefined;
   const tryGit = (args: string[]): string | undefined => {
     try {
       return git(args);
@@ -28,16 +30,17 @@ export function buildInfo(
     }
   };
 
-  const rawBuild = env.BLUEPAX_BUILD ?? tryGit(['rev-list', '--count', '--first-parent', 'HEAD']);
+  const rawBuild =
+    value('BLUEPAX_BUILD') ?? tryGit(['rev-list', '--count', '--first-parent', 'HEAD']);
   const build = rawBuild === undefined ? 0 : Number(rawBuild);
   if (!Number.isInteger(build) || build < 0) {
     throw new Error(`BLUEPAX_BUILD must be a non-negative integer, got "${rawBuild}"`);
   }
 
   return {
-    version: env.BLUEPAX_VERSION ?? '0.0.0-development',
+    version: value('BLUEPAX_VERSION') ?? '0.0.0-development',
     build,
-    commit: env.BLUEPAX_COMMIT ?? tryGit(['rev-parse', 'HEAD']) ?? 'unknown',
-    builtAt: env.BLUEPAX_BUILT_AT ?? now().toISOString(),
+    commit: value('BLUEPAX_COMMIT') ?? tryGit(['rev-parse', 'HEAD']) ?? 'unknown',
+    builtAt: value('BLUEPAX_BUILT_AT') ?? now().toISOString(),
   };
 }

@@ -21,7 +21,22 @@ webhooks, preview tokens and the block JSON Schema.
 
 ## Quick start
 
-A `docker compose` quick start will be added with the first beta.
+Needs Docker with the compose plugin. In an empty folder, fetch the compose file and the settings:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/bluepax/bluepax-cms/main/deploy/docker-compose.yml
+curl -fsSL -o .env https://raw.githubusercontent.com/bluepax/bluepax-cms/main/deploy/.env.example
+```
+
+Fill in `ORIGIN` (the CMS's public URL, `http://localhost:3001` for a local try) and the four secrets
+in `.env`, each with the command that generates it. Then start the instance with one command:
+
+```bash
+docker compose up -d
+```
+
+Open `ORIGIN` and finish the setup wizard with `BLUEPAX_INSTALL_TOKEN`. Gateways (HTTPS), upgrades,
+backups and every setting are described in the [deployment guide](deploy/README.md).
 
 ## Frontend integration
 
