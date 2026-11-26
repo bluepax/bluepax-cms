@@ -18,6 +18,7 @@ packages/storage/    storage drivers: local (private)
 packages/cms-blocks/ block and rich text schemas, published as @bluepax/cms-blocks
 packages/cms-client/ typed Delivery API SDK and the API contract, published as @bluepax/cms-client
 examples/config/     fictional instance config files
+examples/minimal-site/ minimal SvelteKit frontend that only uses @bluepax/cms-client (private)
 deploy/dev/          development database (docker compose)
 docs/spec/           the specification
 docs/adr/            architecture decision records
