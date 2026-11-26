@@ -74,8 +74,8 @@ ADR 0009、0010 把路由模板的配置、`/routes/resolve`（含首页 slug �
 ## 延后
 
 - 写 301、折叠链条、拒绝环路、删除记 410：M2 的 seo（据上述审计回放）。
-- `GET /routes/resolve` 端点，`GET /site` 中的路由模板与保留 slug：Delivery / Preview API 项。
-- sitemap、RSS、llms.txt 的数据，`seo` 对象中的 canonical 与 hreflang：M2 seo 与 Delivery API 项（用上面的函数）。
+- `GET /routes/resolve` 端点，`GET /site` 中的路由模板与保留 slug：Delivery / Preview API 项。已完成，见 ADR 0012（解析结果另加 `slug` 字段）。
+- sitemap、RSS、llms.txt 的数据，`seo` 对象中的 canonical 与 hreflang：M2 seo 与 Delivery API 项（用上面的函数）。其中 `seo` 对象已完成，见 ADR 0012。
 - 目录模板：catalog（M4）。
 - 富文本与按钮链接到内容 ID：仍按 ADR 0009 延后。
 
