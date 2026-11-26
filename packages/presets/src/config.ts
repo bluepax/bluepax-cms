@@ -1,12 +1,17 @@
 // Instance configuration (docs/spec/README.md chapter 2, "实例配置项"): the YAML file in a
 // site's deployment repository and the admin settings are the same data. A config file can
 // initialise an empty instance unattended, and an instance can export its settings back.
-// Sections for modules that are not built yet (routes, catalog, inquiries, ...) are added
-// together with those modules; unknown keys are rejected so typos never pass silently.
+// Sections for modules that are not built yet (catalog, inquiries, ...) are added together with
+// those modules; unknown keys are rejected so typos never pass silently.
 import { isSlug, OPTIONAL_MODULES, type OptionalModuleId } from '@bluepax/core';
 import { parse, stringify } from 'yaml';
 import { z } from 'zod';
 import { BLOCK_KEYS } from './blocks.ts';
+import {
+  DEFAULT_ROUTE_TEMPLATES,
+  ROUTE_TEMPLATE_MAX_LENGTH,
+  routeTemplateIssues,
+} from './routes.ts';
 
 export const CONFIG_VERSION = 1;
 export const SITE_TYPES = ['corporate', 'blog'] as const;
@@ -79,9 +84,33 @@ export const slug = z
   .trim()
   .refine(isSlug, 'must be lowercase a-z, 0-9 and single hyphens');
 
-/** The `frontend` section (chapter 2, "前台"). Route templates follow with their own item. */
+const routeTemplate = (fallback: string) =>
+  z.string().trim().max(ROUTE_TEMPLATE_MAX_LENGTH).default(fallback);
+
+/**
+ * Route templates (chapter 6, "路由模板"); templates left out keep their default, so config files
+ * from before the templates stay valid. Checked as a whole: no two may share an address.
+ */
+export const routeTemplatesSchema = z
+  .strictObject({
+    home: routeTemplate(DEFAULT_ROUTE_TEMPLATES.home),
+    page: routeTemplate(DEFAULT_ROUTE_TEMPLATES.page),
+    post: routeTemplate(DEFAULT_ROUTE_TEMPLATES.post),
+    postCategory: routeTemplate(DEFAULT_ROUTE_TEMPLATES.postCategory),
+    tag: routeTemplate(DEFAULT_ROUTE_TEMPLATES.tag),
+    author: routeTemplate(DEFAULT_ROUTE_TEMPLATES.author),
+  })
+  .prefault({})
+  .superRefine((routes, ctx) => {
+    for (const issue of routeTemplateIssues(routes)) {
+      ctx.addIssue({ code: 'custom', path: [issue.kind], message: issue.message });
+    }
+  });
+
+/** The `frontend` section (chapter 2, "前台"). */
 export const frontendConfigSchema = z.strictObject({
   baseUrl,
+  routes: routeTemplatesSchema,
   /**
    * Paths taken by fixed sections of the frontend; page and post slugs may not use them. The
    * fixed segments of the route templates (`blog`, `authors`, ...) are reserved on top.
