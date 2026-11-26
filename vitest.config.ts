@@ -5,6 +5,7 @@ export default defineConfig({
     projects: [
       'packages/*',
       'apps/*',
+      'examples/minimal-site',
       // Repository tooling, e.g. the release scripts.
       { test: { name: 'scripts', include: ['scripts/**/*.test.ts'] } },
     ],
