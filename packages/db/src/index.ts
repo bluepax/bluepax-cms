@@ -7,6 +7,7 @@ import * as pages from './schema/pages.ts';
 import * as posts from './schema/posts.ts';
 import * as site from './schema/site.ts';
 
+export * from './backup.ts';
 export * from './migrate.ts';
 export * as schema from './schema/index.ts';
 export { DELIVERY_SCOPES, type DeliveryScope } from './schema/api.ts';
