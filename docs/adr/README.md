@@ -21,3 +21,4 @@
 | [0012](0012-delivery-preview-api.md)               | Delivery / Preview API：端点、Token、限速、seo 与预览              | 已采纳 |
 | [0013](0013-cms-client-and-cms-blocks-packages.md) | `@bluepax/cms-client` 与 `@bluepax/cms-blocks`：契约、客户端与发布 | 已采纳 |
 | [0014](0014-minimal-site-example.md)               | `examples/minimal-site`：只依赖 SDK 的最小 SvelteKit 前台          | 已采纳 |
+| [0015](0015-image-compose-and-startup.md)          | 镜像、compose 快速启动、启动顺序与镜像发布                         | 已采纳 |

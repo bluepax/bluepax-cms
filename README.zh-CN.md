@@ -19,7 +19,22 @@
 
 ## 快速开始
 
-`docker compose` 一条命令启动实例的说明将随首个 beta 提供。
+需要带 compose 插件的 Docker。在一个空目录中取得 compose 文件与设置：
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/bluepax/bluepax-cms/main/deploy/docker-compose.yml
+curl -fsSL -o .env https://raw.githubusercontent.com/bluepax/bluepax-cms/main/deploy/.env.example
+```
+
+在 `.env` 中填写 `ORIGIN`（CMS 的公开地址，本机试用可填 `http://localhost:3001`）与四个密钥，每个旁边都写了生成命令。
+然后一条命令启动实例：
+
+```bash
+docker compose up -d
+```
+
+打开 `ORIGIN`，用 `BLUEPAX_INSTALL_TOKEN` 完成初始化向导。网关（HTTPS）、升级、备份与全部设置见
+[部署说明](deploy/README.zh-CN.md)。
 
 ## 前台接入
 

@@ -160,7 +160,7 @@ path, alternates }`、`{ status: 301, location }` 或 `{ status: 404 }`（M2 增
 ## 影响
 
 - 前台可以按第 6 章接入清单完成第 1–4 步与预览路由；`examples/minimal-site` 可以开始做。
-- 部署文档与 Dockerfile 项需要写明 `ORIGIN`（CMS 的公开地址）。
+- 部署文档与 Dockerfile 项需要写明 `ORIGIN`（CMS 的公开地址）。（已由 0015 完成：生产构建缺少 `ORIGIN` 时拒绝启动，compose 将其列为必填。）
 - 以后：`/feed`、`/seo/*` 与 404 上报（M2 `seo`，Event API）；Webhook 地址与密钥（M2）；Management API 与 Token（M2
   起）；表单 Key 与 Inquiry API（M4）；全局默认 OG 与分享图（M2 `seo`）；限速值进入实例配置；预览改为工作副本（M2）；
   `@bluepax/cms-client`（含预览 token 与 Webhook 校验函数）与 `@bluepax/cms-blocks` 的发布（单独一项）。
