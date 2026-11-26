@@ -592,9 +592,18 @@ function contentMediaUses(content: Pick<PostContent, 'seo' | 'body'>): MediaUse[
   ];
 }
 
+/**
+ * The cover is the OG image of every language without its own (chapter 3), so it gets the
+ * purpose `og`: the 1200×630 JPG that the Delivery API returns is derived from it (chapter 5).
+ */
 function sharedMediaUses(shared: PostShared): MediaUse[] {
   return shared.cover
-    ? [{ ref: { mediaId: shared.cover, field: 'cover', kind: 'image' }, formField: 'cover' }]
+    ? [
+        {
+          ref: { mediaId: shared.cover, field: 'cover', kind: 'image', purpose: 'og' },
+          formField: 'cover',
+        },
+      ]
     : [];
 }
 

@@ -410,6 +410,20 @@ describe.skipIf(!baseUrl)('pages module', { timeout: 30_000 }, () => {
       ).code,
     ).toBe('edit_conflict');
 
+    // Without an OG image the first image stands in (chapter 3), so its usage gets the purpose
+    // `og` and the 1200×630 JPG the Delivery API returns exists (chapter 5).
+    await saveTranslation(
+      ctx,
+      id,
+      'en',
+      content({ slug: 'services', blocks: [{ type: 'hero', data: { background: imageId } }] }),
+      actor,
+      { offer },
+    );
+    expect((await usagesOf(db, imageId)).filter((u) => u.module === 'pages')).toEqual([
+      expect.objectContaining({ field: expect.stringMatching(/\.background$/), purpose: 'og' }),
+    ]);
+
     // A PDF is no image; the failing field is named by its form path.
     expect(
       await failure(

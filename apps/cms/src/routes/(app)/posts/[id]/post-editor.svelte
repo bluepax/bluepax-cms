@@ -8,6 +8,7 @@
   import OrderedPicker from '#lib/components/ordered-picker.svelte';
   import RichTextEditor from '#lib/components/rich-text-editor.svelte';
   import SeoPanel, { type SchemaBase, type SeoState } from '#lib/components/seo-panel.svelte';
+  import PreviewLink from '#lib/components/preview-link.svelte';
   import { Button } from '#lib/components/ui/button/index.js';
   import { Input } from '#lib/components/ui/input/index.js';
   import { m } from '#lib/paraglide/messages.js';
@@ -37,6 +38,7 @@
     seo: SeoState;
   }
   interface Shared {
+    id: string;
     cover: string | null;
     categoryIds: string[];
     tagIds: string[];
@@ -237,6 +239,7 @@
       </div>
       <div class="flex flex-wrap gap-2">
         <Button type="submit" size="sm" variant="outline" disabled={submitting}>{m.save()}</Button>
+        <PreviewLink type="post" id={post.id} {locale} />
         {#if status === 'draft' || status === 'unpublished'}
           <Button
             type="submit"

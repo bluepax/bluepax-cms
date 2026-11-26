@@ -5,6 +5,7 @@
   import type { SubmitFunction } from '$app/forms';
   import type { PickedMedia } from '#lib/components/media-dialog.svelte';
   import type { PickedPost } from '#lib/components/post-picker.svelte';
+  import PreviewLink from '#lib/components/preview-link.svelte';
   import { Button } from '#lib/components/ui/button/index.js';
   import { Input } from '#lib/components/ui/input/index.js';
   import { m } from '#lib/paraglide/messages.js';
@@ -17,6 +18,7 @@
   // buttons save the form too, so nothing typed is lost (in M1 edits change the content
   // directly; working copies follow in M2).
   interface Translation {
+    pageId: string;
     locale: string;
     title: string;
     slug: string;
@@ -163,6 +165,7 @@
       </div>
       <div class="flex flex-wrap gap-2">
         <Button type="submit" size="sm" variant="outline" disabled={submitting}>{m.save()}</Button>
+        <PreviewLink type="page" id={translation.pageId} locale={translation.locale} />
         {#if status === 'draft' || status === 'unpublished'}
           <Button
             type="submit"

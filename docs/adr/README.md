@@ -18,3 +18,4 @@
 | [0009](0009-pages-block-pages.md)               | pages 模块：区块页的存储、区块定义、状态、首页与保留 slug | 已采纳 |
 | [0010](0010-posts-categories-tags-authors.md)   | posts 模块：文章、分类、标签与作者                        | 已采纳 |
 | [0011](0011-route-templates.md)                 | 路由模板：配置、校验、地址生成与路径解析                  | 已采纳 |
+| [0012](0012-delivery-preview-api.md)            | Delivery / Preview API：端点、Token、限速、seo 与预览     | 已采纳 |

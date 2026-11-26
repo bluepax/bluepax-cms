@@ -13,7 +13,7 @@ import {
   type RouteKind,
   type RouteTemplates,
 } from '@bluepax/presets';
-import { and, eq, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, type SQL } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { exportInstanceConfig } from '../instance.ts';
 
@@ -70,6 +70,8 @@ export function entryPath(templates: RouteTemplates, entry: RouteEntry): string 
 
 interface EntryFilter {
   id?: string;
+  /** Any of these IDs (never empty). */
+  ids?: readonly string[];
   locale?: string;
   slug?: string;
   /** Pages only: just the home page. */
@@ -85,6 +87,7 @@ interface TranslationColumns {
 function conditions(t: TranslationColumns, filter: EntryFilter, ...more: SQL[]): SQL | undefined {
   return and(
     filter.id === undefined ? undefined : eq(t.entityId, filter.id),
+    filter.ids === undefined ? undefined : inArray(t.entityId, [...filter.ids]),
     filter.locale === undefined ? undefined : eq(t.locale, filter.locale),
     filter.slug === undefined ? undefined : eq(t.slug, filter.slug),
     ...more,
@@ -182,6 +185,25 @@ export async function contentAddresses(
   return result;
 }
 
+/** `contentAddresses` of many items of one type at once, by ID. */
+export async function addressesOf(
+  db: Executor,
+  setup: RoutingSetup,
+  type: RoutableType,
+  ids: readonly string[],
+): Promise<Map<string, Record<string, string>>> {
+  const result = new Map<string, Record<string, string>>(ids.map((id) => [id, {}]));
+  if (ids.length === 0) return result;
+  const entries = await entriesOf(db, type, { ids: [...new Set(ids)] });
+  for (const locale of setup.languages) {
+    for (const entry of entries) {
+      if (entry.locale === locale)
+        result.get(entry.id)![locale] = entryPath(setup.templates, entry);
+    }
+  }
+  return result;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Template changes
 
@@ -229,6 +251,8 @@ export type Resolution =
       id: string;
       /** The content language, e.g. `zh-CN`. */
       locale: string;
+      /** The slug of that language, e.g. for `GET /pages/{slug}`. */
+      slug: string;
       path: string;
       /** The address in every language that has one, the requested one included. */
       alternates: Record<string, string>;
@@ -301,6 +325,7 @@ async function found(db: Executor, setup: RoutingSetup, entry: RouteEntry): Prom
     route: entry.route,
     id: entry.id,
     locale: entry.locale,
+    slug: entry.slug,
     path: entryPath(setup.templates, entry),
     alternates: await contentAddresses(db, setup, entry),
   };

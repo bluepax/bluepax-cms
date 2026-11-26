@@ -5,6 +5,8 @@ export interface RateLimitResult {
   allowed: boolean;
   /** Milliseconds until the next attempt is allowed (0 when allowed). */
   retryAfterMs: number;
+  /** Attempts left in the current window. */
+  remaining: number;
 }
 
 export class SlidingWindowLimiter {
@@ -23,12 +25,12 @@ export class SlidingWindowLimiter {
     const hits = (this.#hits.get(key) ?? []).filter((t) => t > since);
     if (hits.length >= this.limit) {
       this.#hits.set(key, hits);
-      return { allowed: false, retryAfterMs: hits[0]! + this.windowMs - now };
+      return { allowed: false, retryAfterMs: hits[0]! + this.windowMs - now, remaining: 0 };
     }
     hits.push(now);
     this.#hits.set(key, hits);
     if (this.#hits.size > 10_000) this.#sweep(since);
-    return { allowed: true, retryAfterMs: 0 };
+    return { allowed: true, retryAfterMs: 0, remaining: this.limit - hits.length };
   }
 
   #sweep(since: number): void {

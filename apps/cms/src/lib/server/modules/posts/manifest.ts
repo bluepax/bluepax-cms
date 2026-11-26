@@ -13,8 +13,7 @@ export const POSTS_AUTHORS = 'posts.authors';
 
 // posts module (chapter 3): posts per content language with status and SEO fields, post
 // categories, tags and authors (docs/adr/0010). Editors have every content action. Scheduled
-// publishing, working copies and revisions follow in M2; the Delivery endpoints (`/posts`,
-// `/post-categories`, `/tags`, `/authors`, `/feed`) with the Delivery API.
+// publishing, working copies and revisions follow in M2, `/feed` with `seo` (docs/adr/0012).
 export const postsModule = defineModule({
   id: 'posts',
   version: '1.0.0',
@@ -29,6 +28,14 @@ export const postsModule = defineModule({
     { name: POSTS_AUTHORS, kind: 'content' },
   ],
   menu: [{ label: 'nav_posts', href: '/posts', permission: POSTS_EDIT }],
+  endpoints: [
+    { method: 'GET', path: '/delivery/v1/posts' },
+    { method: 'GET', path: '/delivery/v1/posts/{slug}' },
+    { method: 'GET', path: '/delivery/v1/post-categories' },
+    { method: 'GET', path: '/delivery/v1/tags' },
+    { method: 'GET', path: '/delivery/v1/authors' },
+    { method: 'GET', path: '/delivery/v1/authors/{slug}' },
+  ],
   // TODO(M2): sent once webhooks exist (chapter 6, "Webhook 事件").
   webhookEvents: [
     'content.published',
