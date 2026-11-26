@@ -1,9 +1,10 @@
 // JSON Schemas of the blocks and of rich text (docs/spec/README.md chapters 4 and 6), generated
 // from the Zod schemas, which stay the single definition (docs/adr/0009, 0012). They describe the
 // data as the Delivery API returns it, defaults filled in. `GET /schema/blocks` serves them; the
-// published package will ship the same output as files.
+// published package ships the same output as files (`dist/schemas/`, scripts/build.ts).
 import { z } from 'zod';
-import { BLOCK_KEYS, blockSchemas, type BlockKey } from './blocks.ts';
+import { blockSchemas } from './blocks.ts';
+import { BLOCK_KEYS, type BlockKey } from './keys.ts';
 import { richTextSchema } from './rich-text.ts';
 
 export type JsonSchema = Record<string, unknown>;
