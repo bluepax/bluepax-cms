@@ -87,7 +87,7 @@ describe('SlidingWindowLimiter', () => {
     const limiter = new SlidingWindowLimiter(2, 1000);
     expect(limiter.hit('ip', 0).allowed).toBe(true);
     expect(limiter.hit('ip', 100).allowed).toBe(true);
-    expect(limiter.hit('ip', 200)).toEqual({ allowed: false, retryAfterMs: 800 });
+    expect(limiter.hit('ip', 200)).toEqual({ allowed: false, retryAfterMs: 800, remaining: 0 });
     expect(limiter.hit('other', 200).allowed).toBe(true);
     expect(limiter.hit('ip', 1001).allowed).toBe(true);
   });
