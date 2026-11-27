@@ -27,6 +27,25 @@ describe('commit message rules', () => {
     expect(lint(message)).toBe(0);
   });
 
+  it('skips the release commit on main, whose codename stands in the type position', () => {
+    const release = [
+      'swift(v1.0.0-beta.34): release the m1 skeleton as the first beta',
+      '',
+      '<feature>',
+      'Add the module registry',
+      '',
+    ].join('\n');
+    expect(lint(release)).toBe(0);
+    expect(lint('swift(v1.2.0): add the insights dashboards\n')).toBe(0);
+  });
+
+  it('still checks commits that only look like a release commit', () => {
+    expect(lint('feat(v1.0.0): add cart\n')).not.toBe(0);
+    expect(lint('Swift(v1.0.0): add cart\n')).not.toBe(0);
+    expect(lint('swift(1.0.0): add cart\n')).not.toBe(0);
+    expect(lint('swift(v1.0.0-rc.1): add cart\n')).not.toBe(0);
+  });
+
   it('does not skip a commit that only copies the Dependabot sign-off', () => {
     expect(
       lint('feat: Add cart\n\nSigned-off-by: dependabot[bot] <support@github.com>\n'),

@@ -10,15 +10,36 @@ export function isDependabotCommit(message: string): boolean {
   );
 }
 
+const TYPES = [
+  'feat',
+  'fix',
+  'perf',
+  'refactor',
+  'docs',
+  'test',
+  'build',
+  'ci',
+  'revert',
+  'chore',
+  'init',
+];
+
+// The release commit on main is `<codename>(vX.Y.Z[-beta.N]): <summary>` (chapter 11, e.g.
+// `swift(v1.0.0-beta.34): …`): the codename stands where a type would, so the type and scope
+// rules cannot apply to it. Only the subject is matched, and a real type never counts as a codename.
+const RELEASE_SUBJECT =
+  /^([a-z]+)\(v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-beta\.[1-9]\d*)?\): \S/;
+
+export function isReleaseCommit(message: string): boolean {
+  const match = RELEASE_SUBJECT.exec(message.split('\n', 1)[0] ?? '');
+  return match !== null && !TYPES.includes(match[1] ?? '');
+}
+
 const config: UserConfig = {
   extends: ['@commitlint/config-conventional'],
-  ignores: [isDependabotCommit],
+  ignores: [isDependabotCommit, isReleaseCommit],
   rules: {
-    'type-enum': [
-      2,
-      'always',
-      ['feat', 'fix', 'perf', 'refactor', 'docs', 'test', 'build', 'ci', 'revert', 'chore', 'init'],
-    ],
+    'type-enum': [2, 'always', TYPES],
     // Scope is a module ID or a package name.
     'scope-enum': [
       2,

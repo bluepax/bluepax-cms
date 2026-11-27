@@ -37,6 +37,8 @@ commit_parsers = [
   { message = "^Merge ", skip = true },
   { message = "^init", skip = true },
   { message = "^chore\\(release\\)", skip = true },
+  # The release commit on main, `<codename>(vX.Y.Z[-beta.N]): …` (chapter 11).
+  { message = "^[a-z]+\\(v[0-9]+\\.[0-9]+\\.[0-9]+(-beta\\.[0-9]+)?\\):", skip = true },
   { body = ".*BREAKING CHANGE.*", group = "<!-- 0 -->Breaking changes" },
   { message = "^[a-z]+(\\(.+\\))?!:", group = "<!-- 0 -->Breaking changes" },
   { message = "^feat", group = "<!-- 1 -->Features" },
