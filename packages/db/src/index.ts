@@ -9,6 +9,7 @@ import * as site from './schema/site.ts';
 
 export * from './backup.ts';
 export * from './migrate.ts';
+export * from './queries.ts';
 export * as schema from './schema/index.ts';
 export { DELIVERY_SCOPES, type DeliveryScope } from './schema/api.ts';
 export type { ContentStatus, SeoFields } from './schema/pages.ts';

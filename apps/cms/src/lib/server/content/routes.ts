@@ -4,7 +4,7 @@
 // template changes) and the resolution of a path, which `GET /routes/resolve` of the Delivery
 // API returns. A language that is not published has no address and never falls back.
 import { isSlug } from '@bluepax/core';
-import { schema, type Executor } from '@bluepax/db';
+import { allQueries, schema, type Executor } from '@bluepax/db';
 import {
   matchRoute,
   ROUTE_KINDS,
@@ -164,8 +164,13 @@ export async function publishedAddresses(
   const types = TYPES.filter((type) =>
     routes.some((route) => route === type || (route === 'home' && type === 'page')),
   );
-  const entries = (await Promise.all(types.map((type) => entriesOf(db, type)))).flat();
+  // In a transaction when the templates are saved (addressChanges).
+  const entries = await allQueries(
+    db,
+    types.map((type) => () => entriesOf(db, type)),
+  );
   return entries
+    .flat()
     .filter((entry) => routes.includes(entry.route))
     .map((entry) => ({ ...entry, path: entryPath(templates, entry) }));
 }

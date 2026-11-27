@@ -3,7 +3,14 @@
 // public author page and the linked admin account are shared. An author exists in a language
 // when it has a translation there. A blog names one author as its main author, the Person
 // publisher of the site settings (docs/adr/0007).
-import { schema, type Database, type Executor, type Localized, type SeoFields } from '@bluepax/db';
+import {
+  allQueries,
+  schema,
+  type Database,
+  type Executor,
+  type Localized,
+  type SeoFields,
+} from '@bluepax/db';
 import { httpUrl } from '@bluepax/presets';
 import { and, asc, count, eq, inArray, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -106,10 +113,10 @@ export async function listAuthors(db: Executor): Promise<AuthorListItem[]> {
     .leftJoin(schema.users, eq(schema.users.id, schema.authors.userId))
     .orderBy(asc(schema.authors.createdAt), asc(schema.authors.id));
   const ids = rows.map((r) => r.id);
-  const [versions, counts, primary] = await Promise.all([
-    translationsOf(db, ids),
-    postCounts(db, ids),
-    primaryAuthorId(db),
+  const [versions, counts, primary] = await allQueries(db, [
+    () => translationsOf(db, ids),
+    () => postCounts(db, ids),
+    () => primaryAuthorId(db),
   ]);
   return rows.map((row) => ({
     ...row,

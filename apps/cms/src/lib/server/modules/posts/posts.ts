@@ -12,6 +12,7 @@ import {
 } from '@bluepax/cms-blocks';
 import { isSlug } from '@bluepax/core';
 import {
+  allQueries,
   schema,
   type ContentStatus,
   type Database,
@@ -274,9 +275,9 @@ export async function listPosts(
       .offset((page - 1) * pageSize);
   }
   const ids = rows.map((r) => r.id);
-  const [languages, categories] = await Promise.all([
-    languageStatuses(db, ids),
-    linkedIds(db, 'category', ids),
+  const [languages, categories] = await allQueries(db, [
+    () => languageStatuses(db, ids),
+    () => linkedIds(db, 'category', ids),
   ]);
   return {
     items: rows.map((row) => {
@@ -320,10 +321,11 @@ export interface PostSummary extends PostShared {
 }
 
 async function sharedOf(db: Executor, postId: string, cover: string | null): Promise<PostShared> {
-  const [categories, tags, authors] = await Promise.all([
-    linkedIds(db, 'category', [postId]),
-    linkedIds(db, 'tag', [postId]),
-    linkedIds(db, 'author', [postId]),
+  // In a transaction when a post is saved (savePost).
+  const [categories, tags, authors] = await allQueries(db, [
+    () => linkedIds(db, 'category', [postId]),
+    () => linkedIds(db, 'tag', [postId]),
+    () => linkedIds(db, 'author', [postId]),
   ]);
   return {
     cover,
