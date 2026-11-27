@@ -1,7 +1,7 @@
 {
   "name": "@bluepax/cms-client",
   "version": "0.0.0-development",
-  "description": "Typed client of the BluePax CMS Delivery API; install from GitHub Packages (npm.pkg.github.com), see the README",
+  "description": "Typed client of the BluePax CMS Delivery API",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -39,7 +39,8 @@
     "zod": "^4.6.7"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
+    "registry": "https://registry.npmjs.org",
+    "access": "public",
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",

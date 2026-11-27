@@ -27,9 +27,9 @@ scripts/             repository tooling: license gate, release scripts, third-pa
 ```
 
 Packages that are not published are marked `"private": true`. Only `@bluepax/cms-client` and
-`@bluepax/cms-blocks` are published, to GitHub Packages. In the workspace their `exports` point at
-the TypeScript sources; `pnpm build` writes `dist/` and `publishConfig.exports` points the packed
-package there (docs/adr/0013). The Delivery API's response schemas live in
+`@bluepax/cms-blocks` are published, to npmjs (docs/adr/0017). In the workspace their `exports`
+point at the TypeScript sources; `pnpm build` writes `dist/` and `publishConfig.exports` points the
+packed package there (docs/adr/0013). The Delivery API's response schemas live in
 `packages/cms-client/src/contract.ts`: the CMS generates its OpenAPI document from them.
 
 ## Development setup

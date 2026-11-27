@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   checkCodename,
+  checkNpmVersion,
   checkPublishable,
   packagePageUrl,
   parseAnnotation,
@@ -93,11 +94,11 @@ describe('checkPublishable', () => {
   const ok = {
     name: '@bluepax/cms-client',
     path: '/repo/packages/cms-client',
-    publishConfig: { registry: 'https://npm.pkg.github.com' },
+    publishConfig: { registry: 'https://registry.npmjs.org', access: 'public' },
     repository: { url: 'git+https://github.com/bluepax/bluepax-cms.git' },
   };
 
-  it('accepts a package set up for GitHub Packages', () => {
+  it('accepts a public package set up for npmjs', () => {
     expect(() => checkPublishable(ok)).not.toThrow();
   });
 
@@ -107,6 +108,46 @@ describe('checkPublishable', () => {
       /repository/,
     );
     expect(() => checkPublishable({ ...ok, name: 'cms-client' })).toThrow(/@bluepax scope/);
+  });
+
+  it('rejects the old GitHub Packages registry', () => {
+    expect(() =>
+      checkPublishable({
+        ...ok,
+        publishConfig: { registry: 'https://npm.pkg.github.com', access: 'public' },
+      }),
+    ).toThrow(/registry\.npmjs\.org/);
+  });
+
+  it('requires public access', () => {
+    expect(() =>
+      checkPublishable({ ...ok, publishConfig: { registry: 'https://registry.npmjs.org' } }),
+    ).toThrow(/access must be public/);
+    expect(() =>
+      checkPublishable({
+        ...ok,
+        publishConfig: { registry: 'https://registry.npmjs.org', access: 'restricted' },
+      }),
+    ).toThrow(/access must be public/);
+  });
+});
+
+describe('checkNpmVersion', () => {
+  it('accepts npm 11.5.1 and later', () => {
+    for (const v of ['11.5.1', '11.20.0\n', '12.0.0', '11.6.0-pre.1']) {
+      expect(() => checkNpmVersion(v)).not.toThrow();
+    }
+  });
+
+  it('refuses npm versions without trusted publishing', () => {
+    for (const v of ['11.5.0', '10.9.2', '9.99.99']) {
+      expect(() => checkNpmVersion(v)).toThrow(/trusted publishing/);
+    }
+  });
+
+  it('refuses output that is not a version', () => {
+    expect(() => checkNpmVersion('')).toThrow(/could not read/);
+    expect(() => checkNpmVersion('npm ERR! oops')).toThrow(/could not read/);
   });
 });
 
@@ -161,9 +202,9 @@ describe('releaseNotes', () => {
       '## Image\n\n- `ghcr.io/bluepax/bluepax-cms:1.0.0-beta.9`, also tagged `beta`\n' +
         `- Digest: \`${digest}\``,
     );
-    expect(notes.indexOf('## Image')).toBeLessThan(notes.indexOf('## npm packages'));
+    expect(notes.indexOf('## Image')).toBeLessThan(notes.indexOf('## npm packages (npmjs)'));
     expect(notes).toContain(
-      '[`@bluepax/cms-client@1.0.0-beta.9`](https://github.com/bluepax/bluepax-cms/pkgs/npm/cms-client), dist-tag `beta`',
+      '[`@bluepax/cms-client@1.0.0-beta.9`](https://www.npmjs.com/package/@bluepax/cms-client/v/1.0.0-beta.9), dist-tag `beta`',
     );
     expect(notes).toContain('### npm: cms-client\n\nNo changes, version synced only.');
     expect(notes).toContain('- **storage:** Add R2 backfill');
@@ -181,9 +222,9 @@ describe('releaseNotes', () => {
     ).toThrow(/image digest/);
   });
 
-  it('builds package page links without the scope', () => {
-    expect(packagePageUrl('@bluepax/cms-blocks')).toBe(
-      'https://github.com/bluepax/bluepax-cms/pkgs/npm/cms-blocks',
+  it('links to the npmjs page of the published version', () => {
+    expect(packagePageUrl('@bluepax/cms-blocks', '1.2.3')).toBe(
+      'https://www.npmjs.com/package/@bluepax/cms-blocks/v/1.2.3',
     );
   });
 });

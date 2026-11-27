@@ -1,6 +1,6 @@
 # 0001 npm 包发布到 GitHub Packages
 
-- 状态：已采纳（2026-11-24）
+- 状态：已替代（见 [0017](0017-npm-packages-on-npmjs.md)）；2026-11-24 采纳，2026-11-27 改发 npmjs
 - 涉及：规范第 6、10、11、13 章，`.github/workflows/release.yml`，`scripts/release/`
 
 ## 背景

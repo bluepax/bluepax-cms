@@ -31,19 +31,8 @@
 
 ## 在本仓库之外使用
 
-复制整个目录，把 `package.json` 中的 `"@bluepax/cms-client": "workspace:*"` 换成你运行的 CMS 版本号（两者同步发版）。
-这些包发布在 GitHub Packages，安装公开包也需要令牌：本地用带 `read:packages` 权限的经典个人令牌（classic PAT），
-GitHub Actions 中用该仓库自带的 `GITHUB_TOKEN`（需先在包设置中授予该仓库读取权限）。
-
-```ini
-# .npmrc
-@bluepax:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-```
-
-```bash
-NODE_AUTH_TOKEN=<你的令牌> pnpm install
-```
+复制整个目录，把 `package.json` 中的 `"@bluepax/cms-client": "workspace:*"` 换成你运行的 CMS 版本号（两者同步发版），
+再运行 `pnpm install`。SDK 从 npmjs 安装，是公开包，不需要令牌或 `.npmrc` 设置。
 
 ## 生产部署
 

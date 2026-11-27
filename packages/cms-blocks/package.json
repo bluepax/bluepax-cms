@@ -1,7 +1,7 @@
 {
   "name": "@bluepax/cms-blocks",
   "version": "0.0.0-development",
-  "description": "Schemas of the BluePax CMS standard blocks and rich text (Zod and JSON Schema); install from GitHub Packages (npm.pkg.github.com), see the README",
+  "description": "Schemas of the BluePax CMS standard blocks and rich text (Zod and JSON Schema)",
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -39,7 +39,8 @@
     "zod": "^4.6.7"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
+    "registry": "https://registry.npmjs.org",
+    "access": "public",
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",

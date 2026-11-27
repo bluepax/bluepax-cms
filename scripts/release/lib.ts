@@ -1,7 +1,9 @@
 // Release rules from docs/spec/README.md chapter 11 (BluePax Flow), kept free of I/O
 // so they can be unit tested. The CLI scripts next to this file do the git and npm calls.
 
-export const NPM_REGISTRY = 'https://npm.pkg.github.com';
+export const NPM_REGISTRY = 'https://registry.npmjs.org';
+/** First npm CLI that publishes with npm trusted publishing (GitHub Actions OIDC). */
+export const MIN_NPM_VERSION = '11.5.1';
 export const REPOSITORY = 'bluepax/bluepax-cms';
 export const REPOSITORY_URL = `https://github.com/${REPOSITORY}`;
 export const IMAGE = 'ghcr.io/bluepax/bluepax-cms';
@@ -137,11 +139,11 @@ export interface WorkspacePackage {
   name: string;
   path: string;
   private?: boolean;
-  publishConfig?: { registry?: string };
+  publishConfig?: { registry?: string; access?: string };
   repository?: string | { url?: string };
 }
 
-/** A package that is not private is published to GitHub Packages and must be set up for it. */
+/** A package that is not private is published to npmjs and must be set up for it. */
 export function checkPublishable(pkg: WorkspacePackage): void {
   if (!pkg.name.startsWith('@bluepax/')) {
     throw new ReleaseError(`${pkg.name}: published packages must use the @bluepax scope`);
@@ -149,16 +151,45 @@ export function checkPublishable(pkg: WorkspacePackage): void {
   if (pkg.publishConfig?.registry !== NPM_REGISTRY) {
     throw new ReleaseError(`${pkg.name}: publishConfig.registry must be ${NPM_REGISTRY}`);
   }
+  if (pkg.publishConfig.access !== 'public') {
+    // A scoped package is published as restricted unless it says otherwise.
+    throw new ReleaseError(`${pkg.name}: publishConfig.access must be public`);
+  }
   const url = typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url;
   const normalized = url?.replace(/^git\+/, '').replace(/\.git$/, '');
   if (normalized !== REPOSITORY_URL) {
-    // GitHub links the package to this repository through this field.
+    // npm only signs provenance when this field names the repository that runs the build.
     throw new ReleaseError(`${pkg.name}: repository.url must be git+${REPOSITORY_URL}.git`);
   }
 }
 
-export function packagePageUrl(name: string): string {
-  return `${REPOSITORY_URL}/pkgs/npm/${name.replace(/^@[^/]+\//, '')}`;
+/** Compares dotted release versions such as `11.20.0` (pre-release suffixes are ignored). */
+function versionAtLeast(version: string, minimum: string): boolean {
+  const parts = (v: string) => (v.split('-')[0] ?? '').split('.').map(Number);
+  const [a, b] = [parts(version), parts(minimum)];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const [x, y] = [a[i] ?? 0, b[i] ?? 0];
+    if (x !== y) return x > y;
+  }
+  return true;
+}
+
+/** npm trusted publishing needs npm CLI 11.5.1 or later. */
+export function checkNpmVersion(version: string): void {
+  const v = version.trim();
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(v)) {
+    throw new ReleaseError(`could not read the npm version "${v}"`);
+  }
+  if (!versionAtLeast(v, MIN_NPM_VERSION)) {
+    throw new ReleaseError(
+      `npm ${v} cannot use npm trusted publishing, ${MIN_NPM_VERSION} or later is needed`,
+    );
+  }
+}
+
+/** The package's page on npmjs, at one version. */
+export function packagePageUrl(name: string, version: string): string {
+  return `https://www.npmjs.com/package/${name}/v/${version}`;
 }
 
 export interface PublishedPackage {
@@ -207,7 +238,7 @@ export function releaseNotes(input: {
     '',
     ...releaseImageLines(input.image),
     '',
-    '## npm packages (GitHub Packages)',
+    '## npm packages (npmjs)',
     '',
   ];
   if (input.packages.length === 0) {
@@ -216,7 +247,7 @@ export function releaseNotes(input: {
     for (const p of input.packages) {
       const note = p.status === 'skipped' ? ' (already published)' : '';
       lines.push(
-        `- [\`${p.name}@${p.version}\`](${packagePageUrl(p.name)}), dist-tag \`${p.distTag}\`${note}`,
+        `- [\`${p.name}@${p.version}\`](${packagePageUrl(p.name, p.version)}), dist-tag \`${p.distTag}\`${note}`,
       );
     }
   }

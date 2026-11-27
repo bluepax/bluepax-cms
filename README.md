@@ -7,8 +7,14 @@ It provides an admin UI and APIs only and never renders public pages: every site
 builds its own frontend and talks to the CMS through the versioned Delivery API,
 webhooks, preview tokens and the block JSON Schema.
 
-> **Status:** under development, not released yet. The first preview will be
-> `1.0.0-beta.1`.
+- **Docker image:** `ghcr.io/bluepax/bluepax-cms` on the GitHub Container Registry.
+- **npm packages, published on npmjs:**
+  [`@bluepax/cms-client`](https://www.npmjs.com/package/@bluepax/cms-client), the typed Delivery
+  API client, and [`@bluepax/cms-blocks`](https://www.npmjs.com/package/@bluepax/cms-blocks), the
+  block and rich text schemas. Both are public and install without a token.
+
+> **Status:** beta, under active development. The first beta was `1.0.0-beta.34` (codename
+> swift); until 1.0.0 the image and the npm packages are published with the tag `beta`.
 
 ## Highlights
 
@@ -40,19 +46,12 @@ backups and every setting are described in the [deployment guide](deploy/README.
 
 ## Frontend integration
 
-Frontends install the typed SDK `@bluepax/cms-client` and the block schema package
-`@bluepax/cms-blocks` from GitHub Packages, or generate a client from the OpenAPI document.
-GitHub Packages needs a token even for public packages: locally a personal access token
-(classic) with `read:packages`, in GitHub Actions the workflow's `GITHUB_TOKEN`.
-
-```ini
-# .npmrc
-@bluepax:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-```
+Frontends install the typed SDK `@bluepax/cms-client` from npmjs (it brings the block schema
+package `@bluepax/cms-blocks` along), or generate a client from the OpenAPI document. No token or
+`.npmrc` is needed. Install the version of the CMS you run; until 1.0.0, `@beta` is the newest beta:
 
 ```bash
-pnpm add @bluepax/cms-client @bluepax/cms-blocks
+pnpm add @bluepax/cms-client@beta
 ```
 
 See the [SDK's README](packages/cms-client/README.md), the

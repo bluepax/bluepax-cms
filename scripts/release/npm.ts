@@ -1,12 +1,15 @@
-// npm packages for a release, published to GitHub Packages with the workflow's GITHUB_TOKEN.
+// npm packages for a release, published to npmjs (docs/adr/0017).
 //   node scripts/release/npm.ts set-version <version>   write the version into every workspace package
 //   node scripts/release/npm.ts pack <dir>              pack every public package into <dir>
 //   node scripts/release/npm.ts publish <dist-tag> <dir> publish the packed tarballs, skipping published versions
-// Authentication comes from the .npmrc written by actions/setup-node (NODE_AUTH_TOKEN).
+// `publish` runs in release.yml only: npm trusted publishing exchanges the job's GitHub OIDC token
+// (id-token: write) for a one-off publish credential, so no npm token exists anywhere, and npm signs
+// provenance for every tarball. A package's very first version is published by hand (ADR 0017).
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
+  checkNpmVersion,
   checkPublishable,
   NPM_REGISTRY,
   ReleaseError,
@@ -62,9 +65,6 @@ function pack(dir: string): void {
     console.log(`packed ${pkg.name}@${pkg.version}`);
   }
   writeFileSync(join(out, MANIFEST), JSON.stringify(packed, null, 2) + '\n');
-  if (process.env.GITHUB_OUTPUT) {
-    writeFileSync(process.env.GITHUB_OUTPUT, `count=${packed.length}\n`, { flag: 'a' });
-  }
 }
 
 function isPublished(name: string, version: string): boolean {
@@ -81,15 +81,29 @@ function isPublished(name: string, version: string): boolean {
 function publish(distTag: string, dir: string): void {
   const packed = JSON.parse(readFileSync(join(resolve(dir), MANIFEST), 'utf8')) as PackedPackage[];
   const summary: PublishedPackage[] = [];
+  checkNpmVersion(execFileSync('npm', ['--version'], { encoding: 'utf8' }));
   for (const p of packed) {
     if (isPublished(p.name, p.version)) {
       console.log(`skipped ${p.name}@${p.version}: already published`);
       summary.push({ name: p.name, version: p.version, distTag, status: 'skipped' });
       continue;
     }
-    execFileSync('npm', ['publish', p.file, '--tag', distTag, '--registry', NPM_REGISTRY], {
-      stdio: 'inherit',
-    });
+    // --provenance fails without the OIDC token instead of publishing an unsigned version.
+    execFileSync(
+      'npm',
+      [
+        'publish',
+        p.file,
+        '--tag',
+        distTag,
+        '--access',
+        'public',
+        '--provenance',
+        '--registry',
+        NPM_REGISTRY,
+      ],
+      { stdio: 'inherit' },
+    );
     summary.push({ name: p.name, version: p.version, distTag, status: 'published' });
   }
   if (process.env.GITHUB_OUTPUT) {
