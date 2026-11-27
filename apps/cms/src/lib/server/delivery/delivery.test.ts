@@ -115,11 +115,22 @@ describe.skipIf(!baseUrl)('delivery api', { timeout: 60_000 }, () => {
     return { response, status: response.status, body: text ? JSON.parse(text) : null };
   }
 
+  /**
+   * The contract test (chapter 12): the body must match the contract schema that the OpenAPI
+   * document is generated from, and must not carry fields the contract does not describe. Zod
+   * objects drop unknown keys while parsing, so the parsed value has to equal the raw body.
+   */
+  function described<S extends z.ZodType>(contract: S, body: unknown): z.output<S> {
+    const parsed = contract.parse(body);
+    expect(parsed, 'the response has fields the contract does not describe').toEqual(body);
+    return parsed;
+  }
+
   /** Calls an endpoint and checks the body against the contract schema. */
   async function get<S extends z.ZodType>(path: string, contract: S): Promise<z.output<S>> {
     const { status, body } = await call(path);
     expect(status, JSON.stringify(body)).toBe(200);
-    return contract.parse(body);
+    return described(contract, body);
   }
 
   async function errorOf(
@@ -128,7 +139,7 @@ describe.skipIf(!baseUrl)('delivery api', { timeout: 60_000 }, () => {
     extra?: Partial<DeliveryDeps>,
   ) {
     const { status, body } = await call(path, init, extra);
-    return { status, code: errorSchema.parse(body).error.code };
+    return { status, code: described(errorSchema, body).error.code };
   }
 
   async function insertPage(
@@ -711,7 +722,7 @@ describe.skipIf(!baseUrl)('delivery api', { timeout: 60_000 }, () => {
       expect(preview.status).toBe(200);
       expect(preview.response.headers.get('cache-control')).toBe('no-store');
       expect(preview.response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
-      const body = previewSchema.parse(preview.body);
+      const body = described(previewSchema, preview.body);
       expect(body).toMatchObject({ type: 'post', status: 'draft', post: { slug: 'unfinished' } });
       if (body.type === 'post') expect(body.post.seo.robots).toBe('noindex, nofollow');
       // The Delivery Token is required too.
@@ -730,7 +741,7 @@ describe.skipIf(!baseUrl)('delivery api', { timeout: 60_000 }, () => {
         id: ids.about!,
         locale: 'zh-CN',
       }).token;
-      expect(previewSchema.parse((await call(`/preview/${page}`)).body)).toMatchObject({
+      expect(described(previewSchema, (await call(`/preview/${page}`)).body)).toMatchObject({
         type: 'page',
         status: 'draft',
         page: { path: '/zh-cn/guanyu' },
