@@ -5,23 +5,12 @@
 import { isHttpError, isRedirect } from '@sveltejs/kit';
 import { describe, expect, it } from 'vitest';
 import type { AuthUser } from '#lib/server/modules/users/auth.ts';
-
-function user(key: string, permissions: string[]): AuthUser {
-  return {
-    id: '00000000-0000-4000-8000-000000000001',
-    email: `${key}@example.com`,
-    displayName: key,
-    locale: 'en',
-    role: { id: '00000000-0000-4000-8000-000000000002', key, name: key },
-    permissions: new Set(permissions),
-    totpEnabled: false,
-  };
-}
+import { defaultEditor, testUser } from '#lib/server/testing.ts';
 
 /** The default editor role: content actions of the media module, no storage settings. */
-const editor = user('editor', ['pages.edit', 'posts.edit', 'media.edit']);
+const editor = defaultEditor();
 /** A custom role without any permission that edits records with media. */
-const writer = user('writer', ['posts.publish']);
+const writer = testUser('writer', ['posts.publish']);
 
 type Handler = (event: unknown) => unknown;
 interface RouteModule {
