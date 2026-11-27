@@ -1,0 +1,6 @@
+# BluePax Flow (spec chapter 11): lint, typecheck, unit tests and the production build
+# run before every push.
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build

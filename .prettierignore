@@ -1,0 +1,11 @@
+pnpm-lock.yaml
+CHANGELOG.md
+THIRD_PARTY_NOTICES.md
+docs/spec/
+**/.svelte-kit
+**/build
+**/dist
+**/coverage
+packages/db/migrations/
+apps/cms/src/lib/paraglide/
+apps/cms/project.inlang/

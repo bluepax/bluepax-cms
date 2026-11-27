@@ -1,0 +1,60 @@
+{
+  "name": "@bluepax/cms-blocks",
+  "version": "0.0.0-development",
+  "description": "Schemas of the BluePax CMS standard blocks and rich text (Zod and JSON Schema)",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bluepax/bluepax-cms.git",
+    "directory": "packages/cms-blocks"
+  },
+  "homepage": "https://github.com/bluepax/bluepax-cms/tree/dev/packages/cms-blocks#readme",
+  "bugs": "https://github.com/bluepax/bluepax-cms/issues",
+  "keywords": [
+    "bluepax",
+    "cms",
+    "headless-cms",
+    "blocks",
+    "json-schema",
+    "zod"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./keys": "./src/keys.ts",
+    "./links": "./src/links.ts"
+  },
+  "files": [
+    "dist",
+    "README.zh-CN.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node scripts/build.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./keys": {
+        "types": "./dist/keys.d.ts",
+        "default": "./dist/keys.js"
+      },
+      "./links": {
+        "types": "./dist/links.d.ts",
+        "default": "./dist/links.js"
+      },
+      "./schemas/*": "./dist/schemas/*",
+      "./package.json": "./package.json"
+    }
+  }
+}

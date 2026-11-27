@@ -1,0 +1,28 @@
+# Cloudflare Tunnel in front of BluePax CMS, see deploy/README.md ("Gateway") and
+# docs/spec/README.md chapter 9. HTTPS ends at Cloudflare; cloudflared on the same host connects
+# out to Cloudflare, so the server needs no open ports. In deploy/.env set:
+#   ORIGIN=https://cms.example.com
+#   ADDRESS_HEADER=CF-Connecting-IP
+# The CMS listens on 127.0.0.1 only, so every request comes through cloudflared and
+# CF-Connecting-IP can be trusted.
+#
+# Create the tunnel and its DNS record, then run `cloudflared tunnel --config <this file> run`:
+#   cloudflared tunnel create bluepax-cms
+#   cloudflared tunnel route dns bluepax-cms cms.example.com
+#
+# Limits and settings on Cloudflare's side:
+# - Request bodies are capped by the plan (100 MB on Free and Pro, 200 MB on Business): larger
+#   video uploads fail before they reach the CMS.
+# - Cloudflare Access may protect the admin UI, but `/api/*` (frontends and the health check)
+#   and `/uploads/*` (media files) must stay outside it, e.g. as a separate application with a
+#   Bypass policy.
+# - The CMS already answers `X-Robots-Tag: noindex`; do not turn on bot or AI-crawler blocking
+#   for this hostname, that is up to the frontend sites.
+
+tunnel: <tunnel ID>
+credentials-file: /etc/cloudflared/<tunnel ID>.json
+
+ingress:
+  - hostname: cms.example.com
+    service: http://127.0.0.1:3001
+  - service: http_status:404

@@ -1,0 +1,30 @@
+# Caddy in front of BluePax CMS, see deploy/README.md ("Gateway") and docs/spec/README.md
+# chapter 9. HTTPS ends here; Caddy gets and renews the certificate. In deploy/.env set:
+#   ORIGIN=https://cms.example.com
+#   ADDRESS_HEADER=X-Forwarded-For
+#   XFF_DEPTH=1
+#
+# Behind Cloudflare's proxy (orange cloud), let Caddy take the visitor from CF-Connecting-IP,
+# but only for requests from Cloudflare's addresses (https://www.cloudflare.com/ips/):
+# {
+# 	servers {
+# 		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 ...
+# 		client_ip_headers CF-Connecting-IP
+# 	}
+# }
+
+cms.example.com {
+	# Uploads up to the CMS's BODY_SIZE_LIMIT.
+	request_body {
+		max_size 256MB
+	}
+
+	reverse_proxy 127.0.0.1:3001 {
+		# Exactly one address, the visitor as Caddy sees it: never the value a client sent.
+		header_up X-Forwarded-For {client_ip}
+	}
+
+	# The CMS already sends `X-Robots-Tag: noindex` on every response, media files included,
+	# and serves a robots.txt that disallows everything. Do not block AI crawlers here: that is
+	# up to the frontend sites.
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    // Runs wherever fetch and Web Crypto exist (Node.js, Deno, Bun, edge runtimes): no Node.js
+    // APIs in src/.
+    "lib": ["es2024", "dom"],
+    "types": []
+  },
+  "include": ["src"]
+}

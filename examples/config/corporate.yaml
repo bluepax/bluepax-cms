@@ -1,0 +1,77 @@
+# BluePax CMS instance configuration, see docs/spec/README.md chapter 2.
+# Fictional example for a corporate website. Copy it to the site's deployment repository,
+# adjust it and point BLUEPAX_CONFIG_FILE at it to initialise an empty instance unattended.
+version: 1
+site:
+  type: corporate
+  name: Example Industries
+  timezone: Asia/Shanghai
+  publisher:
+    type: organization
+    # Empty means the site name; the logo is set in the admin once media exists.
+    name: Example Industries
+    sameAs:
+      - https://social.example.com/example-industries
+  brandTerms: [Example Industries, ExampleInd]
+  # Instant messaging button: channel key, number and a prefilled text per content language.
+  im:
+    channel: whatsapp
+    number: '+15550100'
+    text:
+      zh-CN: 你好，我想咨询一下。
+      en: Hello, I have a question.
+      ar: مرحبًا، لدي سؤال.
+languages:
+  content:
+    - code: zh-CN
+    - code: en
+    - code: ar
+  primary: zh-CN
+  admin: zh
+frontend:
+  baseUrl: https://www.example.com
+  # Route templates (spec chapter 6): the CMS builds every frontend address from them and the
+  # frontend implements the same routes. Placeholders {locale} (always first) and {slug}; the
+  # other segments are fixed and reserved as slugs. Templates left out keep these defaults.
+  routes:
+    home: /{locale}
+    page: /{locale}/{slug}
+    post: /{locale}/blog/{slug}
+    postCategory: /{locale}/blog/category/{slug}
+    tag: /{locale}/blog/tag/{slug}
+    author: /{locale}/authors/{slug}
+  # Paths of fixed frontend sections that pages and posts may not use as slugs. The fixed
+  # segments of the route templates (blog, authors, ...) are reserved on top.
+  reservedSlugs: [search]
+modules:
+  enabled: [ai, catalog, inquiries, insights, regions, tracking]
+blocks:
+  available:
+    - hero
+    - text-media
+    - cards
+    - steps
+    - stats
+    - logos
+    - category-entry
+    - catalog-list
+    - featured-posts
+    - service-network
+    - latest-posts
+    - contact-cta
+    - rich-text
+storage:
+  mode: local
+  # Media cache lifetime in days (Cache-Control max-age), and upload limits per kind in MB.
+  cacheDays: 365
+  uploadLimitsMb:
+    image: 20
+    document: 50
+    video: 200
+posts:
+  # Post categories the instance starts with: a name and a slug per content language (one slug
+  # may stand for all). The export writes the current categories; descriptions and SEO fields
+  # are entered in the admin.
+  categories:
+    - name: { en: News, zh-CN: 新闻 }
+      slug: news

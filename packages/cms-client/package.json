@@ -1,0 +1,59 @@
+{
+  "name": "@bluepax/cms-client",
+  "version": "0.0.0-development",
+  "description": "Typed client of the BluePax CMS Delivery API",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bluepax/bluepax-cms.git",
+    "directory": "packages/cms-client"
+  },
+  "homepage": "https://github.com/bluepax/bluepax-cms/tree/dev/packages/cms-client#readme",
+  "bugs": "https://github.com/bluepax/bluepax-cms/issues",
+  "keywords": [
+    "bluepax",
+    "cms",
+    "headless-cms",
+    "delivery-api",
+    "sdk"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/contract.ts",
+    "./routes": "./src/routes.ts"
+  },
+  "files": [
+    "dist",
+    "README.zh-CN.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node scripts/build.ts"
+  },
+  "dependencies": {
+    "@bluepax/cms-blocks": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./contract": {
+        "types": "./dist/contract.d.ts",
+        "default": "./dist/contract.js"
+      },
+      "./routes": {
+        "types": "./dist/routes.d.ts",
+        "default": "./dist/routes.js"
+      },
+      "./package.json": "./package.json"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@bluepax/presets",
+  "version": "0.0.0-development",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./routes": "./src/routes.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@bluepax/cms-blocks": "workspace:*",
+    "@bluepax/cms-client": "workspace:*",
+    "@bluepax/core": "workspace:*",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
+  }
+}

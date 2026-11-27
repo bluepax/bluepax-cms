@@ -1,0 +1,145 @@
+name: ci
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+  # release.yml runs the full CI before publishing anything.
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  commitlint:
+    # Every commit of a pull request, or every commit of a push to dev, follows BluePax Flow.
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/dev')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - name: lint commit messages
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            FROM="$PR_BASE"; TO="$PR_HEAD"
+          else
+            FROM="$PUSH_BEFORE"; TO="$PUSH_AFTER"
+          fi
+          if [ -z "$FROM" ] || [ "$FROM" = 0000000000000000000000000000000000000000 ]; then
+            echo "no previous commit to compare with, skipping"
+            exit 0
+          fi
+          pnpm exec commitlint --from "$FROM" --to "$TO" --verbose
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: bluepax
+          POSTGRES_PASSWORD: bluepax
+          POSTGRES_DB: bluepax_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bluepax"
+          --health-interval 2s
+          --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgres://bluepax:bluepax@localhost:5432/bluepax_test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm test
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The build number is the first-parent commit count of dev.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+
+  licenses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm check:licenses
+
+  # End-to-end tests (chapter 10 and 12, docs/adr/0016): Playwright drives the built CMS on an
+  # empty database and the built example frontend through the M1 flows.
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: bluepax
+          POSTGRES_PASSWORD: bluepax
+          POSTGRES_DB: bluepax_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bluepax"
+          --health-interval 2s
+          --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgres://bluepax:bluepax@localhost:5432/bluepax_test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+      - name: install the browser
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm e2e
+      - name: keep the traces of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-test-results
+          path: test-results/
+          retention-days: 7
+
+  # dev's newest build as the `edge` image (chapter 11, docs/adr/0015), once every check above
+  # passed. Pushes to dev run one after another (concurrency above), so `edge` follows dev in order.
+  edge:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev' && github.repository == 'bluepax/bluepax-cms'
+    needs: [commitlint, lint, typecheck, test, build, licenses, e2e]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/image.yml
+    with:
+      tags: edge
+      version: 0.0.0-development

@@ -1,0 +1,46 @@
+{
+  "name": "bluepax-cms",
+  "version": "0.0.0-development",
+  "private": true,
+  "description": "Open-source headless CMS for corporate websites and blogs",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bluepax/bluepax-cms.git"
+  },
+  "engines": {
+    "node": ">=26"
+  },
+  "packageManager": "pnpm@12.23.0",
+  "scripts": {
+    "prepare": "husky",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit && pnpm -r --if-present typecheck",
+    "test": "vitest run --passWithNoTests",
+    "build": "pnpm -r --if-present build",
+    "check:licenses": "node scripts/check-licenses.ts",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "@commitlint/types": "21.2.3",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.65.1",
+    "@types/node": "26.6.6",
+    "eslint": "10.15.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-svelte": "^3.24.1",
+    "git-cliff": "^2.14.2",
+    "globals": "17.14.0",
+    "husky": "9.1.7",
+    "prettier": "3.10.1",
+    "prettier-plugin-svelte": "^4.2.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.74.0",
+    "vitest": "5.1.1"
+  }
+}
