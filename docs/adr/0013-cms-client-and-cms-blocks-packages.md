@@ -85,8 +85,8 @@ OpenAPI 文档同源生成、最小示例前台只依赖公开 SDK。ADR 0012 �
   不跳过库检查的独立项目中验证）。
 - 版本号按第 11 章：仓库中保持 `0.0.0-development`，由 `release.yml`（`scripts/release/npm.ts set-version`）按标签写入；
   cms-client 对 cms-blocks 的 `workspace:*` 在打包时换成同一版本，两个包与 CMS 同步发版。
-- 真正的发布沿用已有的 `release.yml`（打包并发布所有非 private 的 workspace 包），本项不改 workflow；首次发布后把包设为
-  Public 见第 13 章开工清单。
+- 真正的发布沿用已有的 `release.yml`（打包并发布所有非 private 的 workspace 包），本项不改 workflow。发布目标后来由
+  GitHub Packages 改为 npmjs，`publishConfig` 也加了 `access: public`；首次发布与受信任发布的配置见 ADR 0017。
 
 ## 影响
 
@@ -94,4 +94,4 @@ OpenAPI 文档同源生成、最小示例前台只依赖公开 SDK。ADR 0012 �
 - 契约改在 `packages/cms-client` 中进行（提交范围 `cms-client`），一次改动同时改变 OpenAPI 文档与 SDK 类型；v1 只增
   字段、不删不改（第 6 章）。
 - 以后：`verifyWebhook()`（M2，与 Webhook 一起）；Event API、`/feed`、`/seo/*`、`/search`、目录与区域端点上线时在
-  SDK 中加方法（CMS 的测试会提醒）；首次发布时确认 GitHub Packages 的 dist-tag 与组织包权限（ADR 0001）。
+  SDK 中加方法（CMS 的测试会提醒）；两个包发布到 npmjs，首次发布与受信任发布的配置步骤见 ADR 0017（取代 0001）。
