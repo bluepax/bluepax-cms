@@ -37,19 +37,8 @@ minimum on purpose: copy it as a starting point, not as a theme.
 ## Use it outside this repository
 
 Copy the folder, then replace `"@bluepax/cms-client": "workspace:*"` in `package.json` with the CMS
-version you run (both are released together). The packages are on GitHub Packages, which needs a
-token even for public packages: a personal access token (classic) with `read:packages` locally, the
-workflow's `GITHUB_TOKEN` in GitHub Actions (grant the repository read access in the package settings).
-
-```ini
-# .npmrc
-@bluepax:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-```
-
-```bash
-NODE_AUTH_TOKEN=<your token> pnpm install
-```
+version you run (both are released together) and run `pnpm install`. The SDK comes from npmjs and
+is public: no token or `.npmrc` entry is needed.
 
 ## Production
 

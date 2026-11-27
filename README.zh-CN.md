@@ -6,7 +6,12 @@
 每个站点自行实现前台，通过带版本号的 Delivery API、Webhook、预览 Token 与区块 JSON Schema
 与 CMS 对接。
 
-> **状态：** 开发中，尚未发布。首个预览版为 `1.0.0-beta.1`。
+- **Docker 镜像：** `ghcr.io/bluepax/bluepax-cms`，发布在 GitHub Container Registry。
+- **npm 包，发布在 npmjs：** 类型化 Delivery API 客户端
+  [`@bluepax/cms-client`](https://www.npmjs.com/package/@bluepax/cms-client) 与区块、富文本 Schema 包
+  [`@bluepax/cms-blocks`](https://www.npmjs.com/package/@bluepax/cms-blocks)。两个包都是公开的，安装不需要令牌。
+
+> **状态：** beta，持续开发中。首个 beta 为 `1.0.0-beta.34`（代号 swift）；1.0.0 之前镜像与 npm 包都以 `beta` 标签发布。
 
 ## 特性
 
@@ -38,18 +43,12 @@ docker compose up -d
 
 ## 前台接入
 
-前台从 GitHub Packages 安装类型化 SDK `@bluepax/cms-client` 与区块 Schema 包
-`@bluepax/cms-blocks`，或按 OpenAPI 文档生成客户端。GitHub Packages 安装公开包也需要令牌：
-本地用带 `read:packages` 权限的经典个人令牌（classic PAT），GitHub Actions 中用 `GITHUB_TOKEN`。
-
-```ini
-# .npmrc
-@bluepax:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
-```
+前台从 npmjs 安装类型化 SDK `@bluepax/cms-client`（它会带上区块 Schema 包 `@bluepax/cms-blocks`），
+或按 OpenAPI 文档生成客户端。安装不需要令牌或 `.npmrc`。请安装与你运行的 CMS 相同的版本；1.0.0 之前，
+`@beta` 即最新的 beta：
 
 ```bash
-pnpm add @bluepax/cms-client @bluepax/cms-blocks
+pnpm add @bluepax/cms-client@beta
 ```
 
 详见 [SDK 说明](packages/cms-client/README.zh-CN.md)、只依赖它的[最小 SvelteKit 示例前台](examples/minimal-site/README.zh-CN.md)
