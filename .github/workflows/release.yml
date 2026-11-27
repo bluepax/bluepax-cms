@@ -1,6 +1,8 @@
 # Release pipeline, see docs/spec/README.md chapter 11 ("发布流程").
-# Triggered by an annotated tag vX.Y.Z or vX.0.0-beta.N on main. Only the workflow's own
-# GITHUB_TOKEN is used: no personal token is stored in the repository.
+# Triggered by an annotated tag vX.Y.Z or vX.0.0-beta.N on main. No token is stored in the
+# repository: the image and the GitHub Release use the workflow's own GITHUB_TOKEN, the npm packages
+# go to npmjs through npm trusted publishing (GitHub OIDC) with provenance (docs/adr/0017). The
+# trusted publisher configured on npmjs names this file, so renaming it breaks npm publishing.
 # Any failed step stops the pipeline before the GitHub Release is created; re-running the
 # workflow for the same tag skips npm versions that were already published.
 # The image goes to GHCR as ghcr.io/bluepax/bluepax-cms with the tags of chapter 11; its digest
@@ -68,34 +70,24 @@ jobs:
   npm:
     needs: [verify, ci]
     runs-on: ubuntu-latest
+    # id-token: write lets npm exchange this job's OIDC token for a publish credential (trusted
+    # publishing) and sign provenance. The job must stay in this file, not in a called workflow.
     permissions:
       contents: read
-      packages: write
       id-token: write
-      attestations: write
     outputs:
       packages: ${{ steps.publish.outputs.packages }}
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-        with:
-          registry-url: https://npm.pkg.github.com
       - name: write the release version into the workspace packages
         run: node scripts/release/npm.ts set-version "${{ needs.verify.outputs.version }}"
       - name: build
         run: pnpm -r --if-present build
       - name: pack
-        id: pack
         run: node scripts/release/npm.ts pack dist-npm
-      - name: attest the tarballs
-        if: steps.pack.outputs.count != '0'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: dist-npm/*.tgz
-      - name: publish to GitHub Packages
+      - name: publish to npmjs
         id: publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/release/npm.ts publish "${{ needs.verify.outputs.dist-tag }}" dist-npm
 
   release:
