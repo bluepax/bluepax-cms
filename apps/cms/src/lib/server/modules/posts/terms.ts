@@ -3,7 +3,14 @@
 // language; a term exists in a language when it has a translation there. Categories have an
 // order and cannot be deleted while posts, menu items or page blocks use them; deleting a tag
 // removes it from its posts.
-import { schema, type Database, type Executor, type Localized, type SeoFields } from '@bluepax/db';
+import {
+  allQueries,
+  schema,
+  type Database,
+  type Executor,
+  type Localized,
+  type SeoFields,
+} from '@bluepax/db';
 import { and, asc, count, desc, eq, exists, ilike, inArray, ne, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { audit } from '../../audit.ts';
@@ -144,9 +151,9 @@ export async function listTerms(
     .limit(pageSize)
     .offset((page - 1) * pageSize);
   const ids = rows.map((r) => r.id);
-  const [versions, counts] = await Promise.all([
-    versionsOf(db, kind, ids),
-    postCounts(db, kind, ids),
+  const [versions, counts] = await allQueries(db, [
+    () => versionsOf(db, kind, ids),
+    () => postCounts(db, kind, ids),
   ]);
   return {
     items: rows.map((row) => ({
