@@ -53,6 +53,11 @@ wipe that database, so never point it at real data:
 TEST_DATABASE_URL=postgres://bluepax:bluepax@127.0.0.1:5432/bluepax_test pnpm test
 ```
 
+They also fail on a query sent while another one still runs on the same database client,
+which pg 9 refuses. A transaction holds one client, so code that may run in one reads in
+parallel with `allQueries` from `@bluepax/db` (side by side on the pool, one after another in
+a transaction) instead of `Promise.all`.
+
 End-to-end tests (Playwright, `e2e/`) drive the built CMS on an empty database
 (`<TEST_DATABASE_URL>_e2e`) and the built example frontend through setup, permissions,
 publishing, the Delivery API and the frontend:
