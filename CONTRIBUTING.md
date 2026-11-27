@@ -53,6 +53,16 @@ wipe that database, so never point it at real data:
 TEST_DATABASE_URL=postgres://bluepax:bluepax@127.0.0.1:5432/bluepax_test pnpm test
 ```
 
+End-to-end tests (Playwright, `e2e/`) drive the built CMS on an empty database
+(`<TEST_DATABASE_URL>_e2e`) and the built example frontend through setup, permissions,
+publishing, the Delivery API and the frontend:
+
+```bash
+pnpm exec playwright install chromium   # once
+pnpm build
+TEST_DATABASE_URL=postgres://bluepax:bluepax@127.0.0.1:5432/bluepax_test pnpm e2e
+```
+
 New migrations are generated per migration set (`core` or a module ID) from
 `packages/db/src/schema/<set>.ts`:
 
@@ -105,8 +115,8 @@ Signed-off-by: Your Name <you@example.com>
 - `!` or a `BREAKING CHANGE:` footer marks a breaking change.
 
 CI checks every commit of a pull request and of every push to `dev` with commitlint, and runs
-lint, typecheck, unit and integration tests (against PostgreSQL), the license gate and the
-build; CodeQL runs alongside. Commits made by Dependabot are exempt from the commit message rules,
+lint, typecheck, unit and integration tests (against PostgreSQL, including the Delivery API
+contract tests), the end-to-end tests, the license gate and the build; CodeQL runs alongside. Commits made by Dependabot are exempt from the commit message rules,
 because its subject format cannot be configured.
 
 ## Developer Certificate of Origin
