@@ -1,7 +1,7 @@
 {
   "name": "@bluepax/cms-client",
   "version": "0.0.0-development",
-  "description": "Typed client of the BluePax CMS Delivery API",
+  "description": "Typed client of the BluePax CMS Delivery API; install from GitHub Packages (npm.pkg.github.com), see the README",
   "license": "MIT",
   "type": "module",
   "repository": {
