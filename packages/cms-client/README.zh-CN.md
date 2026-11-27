@@ -8,20 +8,51 @@
 **只在服务端使用。** Delivery Token 绝不能进入浏览器：请在服务端代码中创建客户端（SvelteKit 的
 `+page.server.ts` / `hooks.server.ts`、Node.js 服务、边缘函数）。
 
-## 安装
+## 从 GitHub Packages 安装
 
-GitHub Packages 安装公开包也需要令牌：本地用带 `read:packages` 权限的经典个人令牌（classic PAT），GitHub Actions
-中用该仓库自带的 `GITHUB_TOKEN`（需先在包设置中授予该仓库读取权限）。
+本包发布在 GitHub Packages 的 npm 仓库（`npm.pkg.github.com`），不在 npmjs.com。GitHub Packages 即使是公开包，
+安装时也要提供令牌。
 
-```ini
-# .npmrc
-@bluepax:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+1. **准备令牌。** 本机：创建一个带 `read:packages` 权限的经典个人令牌（GitHub → Settings → Developer settings →
+   Personal access tokens → Tokens (classic)）。GitHub Actions：直接用工作流自带的 `GITHUB_TOKEN`，但要先在本包的
+   设置页（“Manage Actions access”）给你的前台仓库加上读取权限。
+2. **让 `@bluepax` 作用域走 GitHub Packages。** 在项目的 `.npmrc` 中写入下面两行。文件里没有密钥，可以提交：
+
+   ```ini
+   @bluepax:registry=https://npm.pkg.github.com
+   //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+   ```
+
+3. **安装。** 把令牌放进环境变量 `NODE_AUTH_TOKEN`（不要提交令牌）：
+
+   ```bash
+   export NODE_AUTH_TOKEN=<你的令牌>
+   pnpm add @bluepax/cms-client@beta @bluepax/cms-blocks@beta
+   ```
+
+   1.0.0 之前只有 beta 版本（dist-tag `beta`）；1.0.0 起去掉 `@beta`（dist-tag `latest`）。包的版本号与 CMS 一致：
+   安装与你运行的 CMS 相同的版本（`GET /api/health` 会返回版本号）。npm 与 Yarn 用法相同（`npm install …@beta`）。
+
+GitHub Actions 中：
+
+```yaml
+permissions:
+  contents: read
+  packages: read
+steps:
+  - uses: actions/checkout@v7
+  - uses: pnpm/action-setup@v6
+  - uses: actions/setup-node@v7
+    with:
+      node-version: 26
+      registry-url: https://npm.pkg.github.com
+      scope: '@bluepax'
+  - run: pnpm install --frozen-lockfile
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-```bash
-pnpm add @bluepax/cms-client @bluepax/cms-blocks
-```
+在 Docker 构建中用构建密钥传入令牌（`docker build --secret id=npm,env=NODE_AUTH_TOKEN`），不要把令牌写进镜像层。
 
 ## 用法
 
