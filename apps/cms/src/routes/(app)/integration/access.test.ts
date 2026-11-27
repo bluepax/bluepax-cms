@@ -5,17 +5,10 @@
 import { isHttpError, isRedirect } from '@sveltejs/kit';
 import { describe, expect, it } from 'vitest';
 import type { AuthUser } from '#lib/server/modules/users/auth.ts';
+import { defaultEditor } from '#lib/server/testing.ts';
 import { actions, load } from './+page.server.ts';
 
-const editor: AuthUser = {
-  id: '00000000-0000-4000-8000-000000000001',
-  email: 'editor@example.com',
-  displayName: 'Editor',
-  locale: 'en',
-  role: { id: '00000000-0000-4000-8000-000000000002', key: 'editor', name: 'Editor' },
-  permissions: new Set(['pages.edit', 'posts.edit', 'media.edit']),
-  totpEnabled: false,
-};
+const editor = defaultEditor();
 
 type Handler = (event: never) => unknown;
 
