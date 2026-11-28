@@ -140,6 +140,17 @@ export async function saveGeneral(
   return saveConfig(db, 'site', actor, (c) => ({ ...c, site: { ...c.site, ...input } }), save);
 }
 
+export interface BackupSettingsInput {
+  time: string;
+  keepDaily: number;
+  keepWeekly: number;
+}
+
+/** When the daily backup runs and how many backups are kept (the `backups` section, docs/adr/0019). */
+export function saveBackupSettings(db: Database, input: BackupSettingsInput, actor: Actor) {
+  return saveConfig(db, 'backups', actor, (c) => ({ ...c, backups: { ...c.backups, ...input } }));
+}
+
 export interface InstantMessagingInput {
   channel: string;
   number: string;

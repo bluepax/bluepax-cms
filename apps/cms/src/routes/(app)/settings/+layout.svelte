@@ -3,9 +3,9 @@
   import { m } from '#lib/paraglide/messages.js';
   import type { LayoutProps } from './$types';
 
-  let { children }: LayoutProps = $props();
+  let { data, children }: LayoutProps = $props();
 
-  const links = [
+  const links = $derived([
     { href: '/settings', label: m.settings_general() },
     { href: '/settings/languages', label: m.settings_languages() },
     { href: '/settings/branding', label: m.settings_branding() },
@@ -15,7 +15,8 @@
     { href: '/settings/frontend', label: m.settings_frontend() },
     { href: '/settings/email', label: m.settings_email() },
     { href: '/settings/config', label: m.settings_config() },
-  ];
+    ...(data.canBackups ? [{ href: '/settings/backups', label: m.settings_backups() }] : []),
+  ]);
   const current = $derived(
     links.findLast(
       (l) => page.url.pathname === l.href || page.url.pathname.startsWith(`${l.href}/`),

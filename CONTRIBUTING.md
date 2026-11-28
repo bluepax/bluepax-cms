@@ -13,6 +13,7 @@ Decisions that interpret or deviate from the specification are recorded in
 apps/cms/            SvelteKit app: admin UI, all APIs and the startup entry
 packages/core/       module manifests and registry, permissions, events (private)
 packages/db/         Drizzle schema and migration sets (private)
+packages/jobs/       background jobs on the pg-boss queue and their handlers, e.g. backups (private)
 packages/presets/    corporate and blog presets, instance config format (private)
 packages/storage/    storage drivers: local (private)
 packages/cms-blocks/ block and rich text schemas, published as @bluepax/cms-blocks

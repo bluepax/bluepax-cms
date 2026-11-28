@@ -34,7 +34,9 @@ export const variables = defineEnvVars({
     schema: (value) => value || undefined,
   },
   BLUEPAX_ROLES: {
-    description: 'Roles started by this process: web, worker or both (default web,worker)',
+    description:
+      'Roles started by this process: web (admin UI and APIs), worker (background jobs) or both ' +
+      '(default web,worker)',
     schema: (value) => parseRoles(value),
   },
   BLUEPAX_UPLOADS_DIR: {
@@ -44,8 +46,8 @@ export const variables = defineEnvVars({
   },
   BLUEPAX_BACKUPS_DIR: {
     description:
-      'Folder for database backups (chapter 9); defaults to /data/backups, the backups volume. ' +
-      'Without it `vite dev` migrates without a backup',
+      'Folder for database backups (chapter 9): before migrations, daily and manual; defaults to ' +
+      '/data/backups, the backups volume. Without it `vite dev` takes no backups at all',
     schema: (value) => value || undefined,
   },
   // Read by adapter-node itself; declared here so startup can check them (docs/adr/0015).

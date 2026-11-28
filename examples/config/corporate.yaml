@@ -75,3 +75,9 @@ posts:
   categories:
     - name: { en: News, zh-CN: 新闻 }
       slug: news
+backups:
+  # Daily full database backup at this time (HH:MM) in the site's time zone. Keeps the latest
+  # keepDaily daily backups and, besides them, the Sunday backups of the keepWeekly weeks before.
+  time: '03:00'
+  keepDaily: 7
+  keepWeekly: 4

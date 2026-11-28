@@ -34,6 +34,11 @@ describe('pgDumpInvocation', () => {
 const FAKE = `#!/usr/bin/env node
 const fs = require('node:fs');
 const file = process.argv.find((a) => a.startsWith('--file=')).slice(7);
+if (process.env.FAKE_SLOW) {
+  fs.writeFileSync(file, 'half');
+  setTimeout(() => {}, 60000);
+  return;
+}
 if (process.env.FAKE_FAIL) {
   fs.writeFileSync(file, 'half');
   process.stderr.write('pg_dump: error: connection to server failed\\n');
@@ -84,6 +89,31 @@ describe('dumpDatabase', () => {
     ).rejects.toThrow(/exited with code 1: pg_dump: error: connection to server failed/);
     expect(await readdir(join(dir, 'failed'))).toEqual([]);
     delete process.env.FAKE_FAIL;
+  });
+
+  it('stops pg_dump when the signal aborts and leaves no file behind', async () => {
+    process.env.FAKE_SLOW = '1';
+    const file = join(dir, 'aborted', 'daily.dump');
+    const controller = new AbortController();
+    const dump = dumpDatabase({
+      databaseUrl: 'postgres://bluepax@db/bluepax',
+      file,
+      command,
+      signal: controller.signal,
+    });
+    setTimeout(() => controller.abort(), 300);
+    await expect(dump).rejects.toThrow(/was stopped: the backup was cancelled/);
+    expect(await readdir(join(dir, 'aborted'))).toEqual([]);
+    delete process.env.FAKE_SLOW;
+    // An aborted signal never starts pg_dump.
+    await expect(
+      dumpDatabase({
+        databaseUrl: 'postgres://bluepax@db/bluepax',
+        file,
+        command,
+        signal: controller.signal,
+      }),
+    ).rejects.toThrow(/was not started/);
   });
 
   it('says so when pg_dump is not installed', async () => {

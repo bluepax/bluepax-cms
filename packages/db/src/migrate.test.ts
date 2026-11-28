@@ -42,10 +42,10 @@ describe.skipIf(!baseUrl)('runMigrations', () => {
 
     const applied = [a, b].filter((r) => r.length > 0);
     expect(applied).toHaveLength(1);
-    expect(applied[0]).toEqual([{ name: 'core', count: 2 }]);
+    expect(applied[0]).toEqual([{ name: 'core', count: 3 }]);
     expect(beforeMigrate).toHaveBeenCalledTimes(1);
     // Nothing was applied before: a new database needs no backup.
-    expect(beforeMigrate).toHaveBeenCalledWith([{ name: 'core', count: 2 }], { fresh: true });
+    expect(beforeMigrate).toHaveBeenCalledWith([{ name: 'core', count: 3 }], { fresh: true });
 
     const p = pool();
     expect(await pendingMigrations(p, sets)).toEqual([{ name: 'core', count: 0 }]);
@@ -54,6 +54,7 @@ describe.skipIf(!baseUrl)('runMigrations', () => {
     );
     expect(tables.rows.map((r) => r.tablename)).toEqual([
       'audit_log',
+      'backup_runs',
       'instance_modules',
       'role_permissions',
       'roles',
@@ -86,5 +87,48 @@ describe.skipIf(!baseUrl)('runMigrations', () => {
     const beforeMigrate = vi.fn(async () => {});
     expect(await runMigrations(pool(), migrationSets(root, []), { beforeMigrate })).toEqual([]);
     expect(beforeMigrate).not.toHaveBeenCalled();
+  });
+
+  it('runs afterMigrate inside the lock after the migrations, also when none was pending', async () => {
+    const p = pool();
+    const order: string[] = [];
+    const lockHeld = async () => {
+      // Another session cannot take the lock while runMigrations holds it.
+      const r = await p.query<{ ok: boolean }>(
+        "select pg_try_advisory_lock(x'626c7565706178'::bigint) as ok",
+      );
+      if (r.rows[0]?.ok) {
+        await p.query("select pg_advisory_unlock(x'626c7565706178'::bigint)");
+      }
+      return !r.rows[0]?.ok;
+    };
+    const sets = migrationSets(root, ['media', 'pages']);
+    await runMigrations(p, sets, {
+      beforeMigrate: async () => {
+        order.push('before');
+      },
+      afterMigrate: async () => {
+        order.push(`after:${(await pendingMigrations(p, sets)).every((s) => s.count === 0)}`);
+        order.push(`locked:${await lockHeld()}`);
+      },
+    });
+    await runMigrations(p, sets, {
+      afterMigrate: async () => {
+        order.push('after-again');
+      },
+    });
+    expect(order).toEqual(['before', 'after:true', 'locked:true', 'after-again']);
+  });
+
+  it('releases the lock when afterMigrate fails', async () => {
+    const sets = migrationSets(root, []);
+    await expect(
+      runMigrations(pool(), sets, {
+        afterMigrate: async () => {
+          throw new Error('queue schema failed');
+        },
+      }),
+    ).rejects.toThrow('queue schema failed');
+    expect(await runMigrations(pool(), sets)).toEqual([]);
   });
 });

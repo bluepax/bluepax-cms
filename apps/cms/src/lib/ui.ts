@@ -16,6 +16,12 @@ export function formatDate(value: Date | string | null | undefined): string {
   return new Date(value).toLocaleString(getLocale() === 'zh' ? 'zh-CN' : 'en');
 }
 
+/** Like formatDate, in a given time zone (e.g. the site's), the same on server and client. */
+export function formatDateIn(value: Date | string | null | undefined, timeZone: string): string {
+  if (!value) return m.never();
+  return new Date(value).toLocaleString(getLocale() === 'zh' ? 'zh-CN' : 'en', { timeZone });
+}
+
 /** Native <select> styled like the shadcn inputs. */
 export const selectClass =
   'border-input bg-background h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50';

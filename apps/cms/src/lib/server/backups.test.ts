@@ -5,7 +5,7 @@ import type { DumpOptions } from '@bluepax/db';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   backupBeforeMigrate,
-  backupFileName,
+  preMigrateBackupName,
   finishPendingUpgrade,
   PENDING_UPGRADE_FILE,
 } from './backups.ts';
@@ -14,9 +14,9 @@ const databaseUrl = 'postgres://bluepax:secret@postgres:5432/bluepax';
 const pending = [{ name: 'pages', count: 1 }];
 const now = new Date('2026-11-26T22:54:00.123Z');
 
-describe('backupFileName', () => {
+describe('preMigrateBackupName', () => {
   it('sorts by time and contains no characters that need quoting', () => {
-    expect(backupFileName(now)).toBe('pre-migrate-20261126-225400Z.dump');
+    expect(preMigrateBackupName(now)).toBe('pre-migrate-20261126-225400Z.dump');
   });
 });
 
@@ -53,7 +53,12 @@ describe('backupBeforeMigrate', () => {
       dump,
     });
     const file = join(dir, 'pre-migrate-20261126-225400Z.dump');
-    expect(result).toEqual({ action: 'created', file, bytes: 4 });
+    expect(result).toEqual({
+      action: 'created',
+      file,
+      bytes: 4,
+      takenAt: '2026-11-26T22:54:00.123Z',
+    });
     expect(dump).toHaveBeenCalledWith({ databaseUrl, file });
     const record = JSON.parse(await readFile(join(dir, PENDING_UPGRADE_FILE), 'utf8'));
     expect(record).toEqual({

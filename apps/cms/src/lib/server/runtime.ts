@@ -1,9 +1,10 @@
-// Process startup, see docs/spec/README.md chapter 9 ("启动顺序") and docs/adr/0015: take
-// the advisory lock, back up the database when migrations are pending, apply them, release
-// the lock, then start the configured roles. Any failure throws, so the process exits
-// before adapter-node listens and never serves traffic.
+// Process startup, see docs/spec/README.md chapter 9 ("启动顺序") and docs/adr/0015, 0019:
+// take the advisory lock, back up the database when migrations are pending, apply them,
+// install or upgrade the job queue's schema, release the lock, then start the configured
+// roles. Any failure throws, so the process exits before adapter-node listens and never
+// serves traffic.
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 import {
   createDatabase,
   createPool,
@@ -12,6 +13,7 @@ import {
   type Database,
   type Pool,
 } from '@bluepax/db';
+import { Jobs, recordStartupBackup } from '@bluepax/jobs';
 import { parseConfigYaml } from '@bluepax/presets';
 import { dev } from '$app/env';
 import { createLocalDriver, DEFAULT_LOCAL_ROOT, type StorageDriver } from '@bluepax/storage';
@@ -27,7 +29,12 @@ import {
   ENCRYPTION_KEY,
   ORIGIN,
 } from '$app/env/private';
-import { backupBeforeMigrate, DEFAULT_BACKUPS_DIR, finishPendingUpgrade } from './backups.ts';
+import {
+  backupBeforeMigrate,
+  DEFAULT_BACKUPS_DIR,
+  finishPendingUpgrade,
+  type PreMigrateBackup,
+} from './backups.ts';
 import { parseBodySizeLimit } from './http.ts';
 import { initializeInstance, instanceState } from './instance.ts';
 import { log } from './log.ts';
@@ -35,10 +42,13 @@ import { migrationSetNames, registry } from './modules.ts';
 import { UPLOADS_PATH } from './modules/media/files.ts';
 import type { Role } from './roles.ts';
 import { deriveKey, parseEncryptionKey } from './security/crypto.ts';
+import { startWorker, type Worker } from './worker.ts';
 
 let pool: Pool | undefined;
 let database: Database | undefined;
 let storage: StorageDriver | undefined;
+let jobs: Jobs | undefined;
+let worker: Worker | undefined;
 /** Becomes true once the instance is initialised and has an admin; it never turns back. */
 let ready = false;
 
@@ -60,6 +70,12 @@ export function getStorage(): StorageDriver {
     publicBaseUrl: UPLOADS_PATH,
   });
   return storage;
+}
+
+/** The job queue: every role sends jobs; only the worker role takes them. Ready after startup. */
+export function getJobs(): Jobs {
+  if (!jobs) throw new Error('the job queue is not started');
+  return jobs;
 }
 
 export function hasRole(role: Role): boolean {
@@ -122,14 +138,27 @@ function checkDeployment(): void {
   }
 }
 
-/** Where pre-migration backups go; `vite dev` only backs up when the folder is set. */
-function backupsDir(): string | undefined {
+/**
+ * Where backups go: the pre-migration backup, the daily backups and those an admin starts.
+ * `vite dev` only backs up when the folder is set (developer machines rarely have pg_dump).
+ */
+export function backupsDir(): string | undefined {
   return BLUEPAX_BACKUPS_DIR ?? (dev ? undefined : DEFAULT_BACKUPS_DIR);
+}
+
+function createJobs(): Jobs {
+  return new Jobs({
+    connectionString: DATABASE_URL ?? '',
+    worker: hasRole('worker'),
+    name: [...BLUEPAX_ROLES].join(','),
+    log,
+  });
 }
 
 async function migrate(): Promise<void> {
   const root = BLUEPAX_MIGRATIONS_DIR ?? resolve('../../packages/db/migrations');
   const dir = backupsDir();
+  let backup: PreMigrateBackup | undefined;
   const applied = await runMigrations(getPool(), migrationSets(root, migrationSetNames()), {
     beforeMigrate: async (pending, { fresh }) => {
       if (!dir) {
@@ -137,7 +166,7 @@ async function migrate(): Promise<void> {
         return;
       }
       log('info', 'migrations pending, backing up the database first', { pending });
-      const backup = await backupBeforeMigrate({
+      backup = await backupBeforeMigrate({
         dir,
         databaseUrl: DATABASE_URL ?? '',
         pending,
@@ -145,8 +174,53 @@ async function migrate(): Promise<void> {
       });
       log('info', `backup before migrating: ${backup.action}`, { ...backup });
     },
+    // After the migrations and still under the lock: pg-boss installs or upgrades its own
+    // schema and the queues, so only one process ever does (docs/adr/0019).
+    afterMigrate: async () => {
+      jobs = createJobs();
+      await jobs.start();
+    },
   });
   if (applied.length > 0) log('info', 'migrations applied', { sets: applied });
+  if (backup?.action === 'created') {
+    await recordStartupBackup(getDatabase(), {
+      file: basename(backup.file),
+      bytes: backup.bytes,
+      takenAt: new Date(backup.takenAt),
+    });
+  }
+}
+
+/**
+ * On SIGTERM / SIGINT the worker stops taking jobs right away and waits for the running ones
+ * (pg-boss fails and later retries what is still running after the timeout), while
+ * adapter-node drains the HTTP connections; once both are done the pools close and the
+ * process can exit (docs/adr/0019). `vite dev` handles its own signals.
+ */
+function stopOnShutdown(): void {
+  if (dev) return;
+  let stopping: Promise<void> | undefined;
+  const stop = () => {
+    stopping ??= (async () => {
+      try {
+        await worker?.stop();
+        await jobs?.stop();
+      } catch (error) {
+        log('error', 'stopping the job queue failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
+    return stopping;
+  };
+  process.once('SIGTERM', () => void stop());
+  process.once('SIGINT', () => void stop());
+  process.once('sveltekit:shutdown', () => {
+    void stop().then(async () => {
+      await pool?.end();
+      log('info', 'stopped');
+    });
+  });
 }
 
 export async function startup(): Promise<void> {
@@ -159,6 +233,16 @@ export async function startup(): Promise<void> {
     await initializeFromConfigFile();
     const dir = backupsDir();
     if (dir) await finishPendingUpgrade(dir);
+    // Migrations are done and the lock is released: now the worker may take jobs.
+    if (hasRole('worker')) {
+      worker = await startWorker({
+        jobs: getJobs(),
+        db: getDatabase(),
+        backupsDir: dir,
+        databaseUrl: DATABASE_URL ?? '',
+      });
+    }
+    stopOnShutdown();
   } catch (error) {
     // Drizzle wraps the database's own message (e.g. a failed migration) in `cause`.
     const cause = error instanceof Error && error.cause instanceof Error ? error.cause.message : '';
@@ -168,6 +252,5 @@ export async function startup(): Promise<void> {
     });
     throw error;
   }
-  // The worker role has no jobs yet: packages/jobs and pg-boss come with the first one (M2).
   log('info', 'started', { roles: [...BLUEPAX_ROLES], build: __BLUEPAX_BUILD_INFO__ });
 }

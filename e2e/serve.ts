@@ -3,7 +3,7 @@
 // throw-away secrets, so every run begins at the setup wizard (chapter 12, docs/adr/0016).
 //   TEST_DATABASE_URL=postgres://… node e2e/serve.ts
 import { randomBytes } from 'node:crypto';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { freshTestDatabase } from '../packages/db/src/testing.ts';
@@ -18,6 +18,8 @@ if (!base) {
 }
 
 const temp = await mkdtemp(join(tmpdir(), 'bluepax-e2e-'));
+await rm(E2E.backupsDir, { recursive: true, force: true });
+await mkdir(E2E.backupsDir, { recursive: true });
 Object.assign(process.env, {
   NODE_ENV: 'production',
   DATABASE_URL: await freshTestDatabase(base, 'e2e'),
@@ -25,7 +27,7 @@ Object.assign(process.env, {
   ENCRYPTION_KEY: randomBytes(32).toString('base64'),
   BLUEPAX_INSTALL_TOKEN: E2E.installToken,
   BLUEPAX_UPLOADS_DIR: join(temp, 'uploads'),
-  BLUEPAX_BACKUPS_DIR: join(temp, 'backups'),
+  BLUEPAX_BACKUPS_DIR: E2E.backupsDir,
   BLUEPAX_MIGRATIONS_DIR: resolve('packages/db/migrations'),
   // As in deploy/docker-compose.yml: above the largest upload limit.
   BODY_SIZE_LIMIT: '256M',

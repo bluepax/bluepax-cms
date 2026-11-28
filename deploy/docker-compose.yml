@@ -28,10 +28,13 @@ services:
       - ${BLUEPAX_BIND:-127.0.0.1}:${BLUEPAX_PORT:-3001}:3001
     volumes:
       - uploads:/data/uploads
+      # Pre-migration, daily and manual database backups. A separate worker container
+      # (BLUEPAX_ROLES=worker) must mount this volume too.
       - backups:/data/backups
       # Instance config files for BLUEPAX_CONFIG_FILE (e.g. /config/corporate.yaml):
       # - ./config:/config:ro
-    # adapter-node finishes open requests for up to 30 s after SIGTERM.
+    # After SIGTERM adapter-node finishes open requests for up to 30 s; meanwhile the worker
+    # gives running jobs 20 s and leaves the rest to be retried (deploy/README.md).
     stop_grace_period: 40s
 
   postgres:

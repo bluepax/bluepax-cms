@@ -41,6 +41,8 @@ export interface DumpOptions {
   file: string;
   /** The pg_dump executable, `pg_dump` on PATH by default. */
   command?: string;
+  /** Stops pg_dump (SIGTERM) and fails the dump, e.g. when a job runs out of time. */
+  signal?: AbortSignal;
 }
 
 export interface DumpResult {
@@ -50,11 +52,21 @@ export interface DumpResult {
 
 const STDERR_LIMIT = 4096;
 
-function run(command: string, args: string[], env: Record<string, string>): Promise<void> {
+function run(
+  command: string,
+  args: string[],
+  env: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new BackupError(`${command} was not started: the backup was cancelled`));
+      return;
+    }
     const child = spawn(command, args, {
       env: { ...process.env, ...env },
       stdio: ['ignore', 'ignore', 'pipe'],
+      ...(signal ? { signal } : {}),
     });
     let stderr = '';
     child.stderr.setEncoding('utf8');
@@ -62,16 +74,21 @@ function run(command: string, args: string[], env: Record<string, string>): Prom
       stderr = (stderr + chunk).slice(-STDERR_LIMIT);
     });
     child.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.name === 'AbortError') {
+        reject(new BackupError(`${command} was stopped: the backup was cancelled`));
+        return;
+      }
       reject(
         error.code === 'ENOENT'
           ? new BackupError(`${command} is not installed (it comes with the PostgreSQL client)`)
           : error,
       );
     });
-    child.on('close', (code, signal) => {
+    child.on('close', (code, killedBy) => {
+      if (signal?.aborted) return; // rejected by the 'error' handler above
       if (code === 0) resolve();
       else {
-        const reason = signal ? `was killed by ${signal}` : `exited with code ${code}`;
+        const reason = killedBy ? `was killed by ${killedBy}` : `exited with code ${code}`;
         reject(new BackupError(`${command} ${reason}: ${stderr.trim() || 'no output'}`));
       }
     });
@@ -84,7 +101,7 @@ export async function dumpDatabase(options: DumpOptions): Promise<DumpResult> {
   await mkdir(dirname(options.file), { recursive: true });
   const { args, env } = pgDumpInvocation(options.databaseUrl, partial);
   try {
-    await run(options.command ?? 'pg_dump', args, env);
+    await run(options.command ?? 'pg_dump', args, env, options.signal);
     await rename(partial, options.file);
   } catch (error) {
     await rm(partial, { force: true });
