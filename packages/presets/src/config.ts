@@ -21,6 +21,14 @@ export const DEFAULT_CACHE_DAYS = 365;
 export const DEFAULT_UPLOAD_LIMITS_MB = { image: 20, document: 50, video: 200 } as const;
 /** Upper bound for the configurable upload limits; uploads are held in memory while processed. */
 export const UPLOAD_LIMIT_MAX_MB = 1024;
+/**
+ * Defaults of chapter 13: one full backup a day at 03:00 in the site's time zone, keeping the 7
+ * latest daily backups and, besides them, the Sunday backups of the 4 weeks before (at most 11).
+ */
+export const DEFAULT_BACKUPS = { time: '03:00', keepDaily: 7, keepWeekly: 4 } as const;
+/** Upper bounds for the retention counts: two months of daily and a year of weekly backups. */
+export const BACKUP_KEEP_DAILY_MAX = 60;
+export const BACKUP_KEEP_WEEKLY_MAX = 52;
 /** JSON-LD publisher: Organization (corporate default) or Person (blog default). */
 export const PUBLISHER_TYPES = ['organization', 'person'] as const;
 
@@ -170,6 +178,28 @@ export const storageConfigSchema = z.strictObject({
 
 export type StorageConfig = z.output<typeof storageConfigSchema>;
 
+/** `HH:MM`, 24-hour clock. */
+const timeOfDay = z
+  .string()
+  .regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, 'must be HH:MM (24-hour clock)');
+
+/**
+ * The `backups` section (chapter 9, "备份与可观测"; chapter 13 defaults): when the daily full
+ * backup runs, in the site's time zone, and how many backups the retention rules keep. Older
+ * configuration files without it get the defaults.
+ */
+export const backupsConfigSchema = z
+  .strictObject({
+    time: timeOfDay.default(DEFAULT_BACKUPS.time),
+    /** Latest daily backups to keep, one per day. */
+    keepDaily: z.int().min(1).max(BACKUP_KEEP_DAILY_MAX).default(DEFAULT_BACKUPS.keepDaily),
+    /** Sunday backups to keep besides the daily ones, one per week. */
+    keepWeekly: z.int().min(0).max(BACKUP_KEEP_WEEKLY_MAX).default(DEFAULT_BACKUPS.keepWeekly),
+  })
+  .prefault({});
+
+export type BackupsConfig = z.output<typeof backupsConfigSchema>;
+
 /** Longest name of a post category, as in the admin. */
 export const CATEGORY_NAME_MAX_LENGTH = 200;
 
@@ -231,6 +261,7 @@ export const instanceConfigSchema = z
     blocks: z.strictObject({ available: z.array(z.enum(BLOCK_KEYS)).min(1) }),
     storage: storageConfigSchema,
     posts: postsConfigSchema,
+    backups: backupsConfigSchema,
   })
   .transform((config, ctx) => {
     const codes = config.languages.content.map((l) => l.code);
