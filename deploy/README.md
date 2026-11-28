@@ -156,7 +156,9 @@ Restore on a new server, from a file downloaded in Settings → Backups:
    docker compose run --rm --no-deps -T --entrypoint tar cms -x -C /data/uploads < uploads.tar
    ```
 
-4. `docker compose up -d`. The instance starts where the backup left it; no setup wizard.
+4. `docker compose up -d`. The instance starts where the backup left it; no setup wizard. Its
+   Settings → Backups lists the run that took the backup as running until the job times out
+   (4 hours) and is marked interrupted.
 
 Try this once before you rely on it (chapter 9: a restore drill before each release).
 

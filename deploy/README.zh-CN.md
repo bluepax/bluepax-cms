@@ -138,7 +138,8 @@ docker compose up -d
    docker compose run --rm --no-deps -T --entrypoint tar cms -x -C /data/uploads < uploads.tar
    ```
 
-4. `docker compose up -d`。实例从备份时的状态继续运行，不会出现初始化向导。
+4. `docker compose up -d`。实例从备份时的状态继续运行，不会出现初始化向导。“设置 → 备份”会把生成这份备份的
+   那一次显示为“进行中”，直到任务超时（4 小时）后标为“中断”。
 
 正式依赖之前先演练一次（规范第 9 章：发版前做恢复演练）。
 
