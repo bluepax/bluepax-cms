@@ -23,7 +23,7 @@ import { ADMIN_ROLE } from './modules/users/auth.ts';
  * Settings rows that hold the configuration sections (one row per section). The `posts`
  * section is not a row: it is read from the post categories and seeds them (docs/adr/0010).
  */
-const SECTIONS = ['site', 'languages', 'frontend', 'blocks', 'storage'] as const;
+const SECTIONS = ['site', 'languages', 'frontend', 'blocks', 'storage', 'backups'] as const;
 const INSTANCE_KEY = 'instance';
 
 export interface InstanceRecord {
