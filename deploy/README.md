@@ -53,12 +53,12 @@ All settings are environment variables in `.env`; secrets live nowhere else.
 | `BLUEPAX_BIND`, `BLUEPAX_PORT` | Where the CMS listens on the host, `127.0.0.1:3001` by default.                                                                                                 |
 | `ADDRESS_HEADER`, `XFF_DEPTH`  | Header with the visitor's IP, set by the gateway (see below).                                                                                                   |
 | `BODY_SIZE_LIMIT`              | Largest request body, `256M`. Must exceed the largest upload limit (video 200 MB by default); other requests are held to 10 MB.                                 |
-| `BLUEPAX_ROLES`                | `web`, `worker` or both (default). M1 has no background jobs yet.                                                                                               |
+| `BLUEPAX_ROLES`                | `web`, `worker` or both (default); see "Roles and a separate worker".                                                                                           |
 | `BLUEPAX_CONFIG_FILE`          | Optional instance config file for an unattended first start.                                                                                                    |
 
 Volumes: `pgdata` (database), `uploads` (local media storage, `/data/uploads`) and `backups`
-(`/data/backups`). Media files are not in the database backups: back up the `uploads` volume
-yourself, or add R2 mirroring once it is available.
+(`/data/backups`, see "Backups"). Media files are not in the database backups: back up the
+`uploads` volume yourself, or add R2 mirroring once it is available.
 
 ## Gateway
 
@@ -81,7 +81,7 @@ The CMS answers `X-Robots-Tag: noindex` on every response and serves a `robots.t
 everything; do not block AI crawlers at the gateway. The admin UI may sit behind Cloudflare Access
 or an IP allow list, but `/api/*` and `/uploads/*` must stay reachable for frontends.
 
-## Startup, upgrades and backups
+## Startup and upgrades
 
 On every start, before it listens, the CMS:
 
@@ -89,7 +89,9 @@ On every start, before it listens, the CMS:
 2. checks for pending migrations and, if there are any, writes a full backup
    `/data/backups/pre-migrate-<UTC time>.dump` (`pg_dump` custom format; skipped for a new, empty
    database);
-3. applies the migrations, releases the lock and starts.
+3. applies the migrations, installs or upgrades the job queue (pg-boss, in the database schema
+   `pgboss`), releases the lock and starts its roles: the web role serves the admin and the APIs,
+   the worker role takes background jobs.
 
 If any step fails, the container exits and never serves: `docker compose ps` shows it restarting
 and unhealthy, and `docker compose logs cms` ends with `startup failed, not serving`. While an
@@ -99,26 +101,72 @@ new one; the next successful start ends that.
 To upgrade, change `BLUEPAX_IMAGE` and run `docker compose up -d`. Migrations only move forward:
 going back to an older version means restoring the backup taken before the upgrade.
 
+On `docker compose stop` the worker stops taking jobs and gives running ones 20 seconds; a job
+still running then (a long backup, say) is stopped and retried later.
+
+## Backups
+
+- **Daily.** The worker takes a full backup `/data/backups/daily-<UTC time>.dump` every day at
+  03:00 in the site's time zone (Settings → Site). It keeps the latest 7 daily backups and,
+  besides them, the Sunday backups of the 4 weeks before (at most 11) and deletes the rest after
+  each successful backup. A failed backup is retried twice (5–10 and 10–20 minutes later) and
+  never deletes anything. If no worker was running at 03:00, the backup is taken once when one runs again.
+- **Settings → Backups** (admins only): time and retention (part of the instance configuration,
+  section `backups`), the next run, the workers' heartbeats, the backup files with download and
+  delete, the latest 20 results with their errors, and "Back up now" (a `manual-…` backup).
+  Downloading a backup hands out the whole database: it needs the `site.backups` permission and
+  every download is in the audit log.
+- Manual backups and those taken before migrations are never deleted automatically.
+- Media files are not in the database backups: back up the `uploads` volume yourself, or add R2
+  mirroring once it is available. Off-site copies of the backups (encrypted, to a private R2
+  bucket) come with R2 as well.
+
 List the backups:
 
 ```bash
 docker compose run --rm --no-deps --entrypoint ls cms -l /data/backups
 ```
 
-Restore one (replaces the whole database) and go back to the previous image:
+Restore one in place (replaces the whole database; after an upgrade, also go back to the image
+that was running when the backup was taken):
 
 ```bash
 docker compose stop cms
 docker compose exec postgres dropdb -U bluepax bluepax
 docker compose exec postgres createdb -U bluepax bluepax
-docker compose run --rm --no-deps -T --entrypoint cat cms /data/backups/pre-migrate-20261126-225400Z.dump \
-  | docker compose exec -T postgres pg_restore -U bluepax -d bluepax
-# set BLUEPAX_IMAGE back to the previous version in .env, then
+docker compose run --rm --no-deps -T --entrypoint cat cms /data/backups/daily-20261129-190000Z.dump \
+  | docker compose exec -T postgres pg_restore -U bluepax -d bluepax --no-owner
+# after an upgrade: set BLUEPAX_IMAGE back to the previous version in .env, then
 docker compose up -d
 ```
 
-Pre-migration backups are never deleted automatically; remove old ones by hand. Daily backups
-with retention come later (milestone M2).
+Restore on a new server, from a file downloaded in Settings → Backups:
+
+1. Copy `docker-compose.yml` and the old `.env` (the same `ENCRYPTION_KEY`, or stored
+   credentials cannot be read; the same `APP_SECRET` keeps sessions and signed links valid).
+2. `docker compose up -d postgres`, then restore the file into the empty database:
+
+   ```bash
+   docker compose exec -T postgres pg_restore -U bluepax -d bluepax --no-owner < daily-20261129-190000Z.dump
+   ```
+
+3. Put the media back into the `uploads` volume (from your copy of the old volume), e.g.:
+
+   ```bash
+   docker compose run --rm --no-deps -T --entrypoint tar cms -x -C /data/uploads < uploads.tar
+   ```
+
+4. `docker compose up -d`. The instance starts where the backup left it; no setup wizard.
+
+Try this once before you rely on it (chapter 9: a restore drill before each release).
+
+## Roles and a separate worker
+
+`BLUEPAX_ROLES` decides what a process runs: `web,worker` (default) serves everything from one
+container. Under load, start a second container from the same image with `BLUEPAX_ROLES=worker`
+and set the first one to `web`; the jobs then run apart from the web traffic. Both must mount the
+same `backups` volume (the worker writes the files, the web role serves the downloads), so they
+run on the same host. A worker-only container answers only `/api/health` (everything else is 404).
 
 ## Health and version
 
