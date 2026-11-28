@@ -24,3 +24,5 @@
 | [0015](0015-image-compose-and-startup.md)            | 镜像、compose 快速启动、启动顺序与镜像发布                         | 已采纳            |
 | [0016](0016-m1-acceptance-e2e-and-contract-tests.md) | M1 验收：按里程碑划分验收项、契约测试、E2E 测试与仓库历史          | 已采纳            |
 | [0017](0017-npm-packages-on-npmjs.md)                | npm 包改发 npmjs：受信任发布、来源证明与首次发布                   | 已采纳            |
+| [0018](0018-m2-order.md)                             | M2 的实施顺序                                                      | 已采纳            |
+| [0019](0019-jobs-and-daily-backups.md)               | 后台任务（`packages/jobs` 与 pg-boss）与每日备份                   | 已采纳            |
