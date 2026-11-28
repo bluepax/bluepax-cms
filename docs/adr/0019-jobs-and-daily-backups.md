@@ -46,6 +46,8 @@ ADR 0015 把 `packages/jobs`、pg-boss 与每日备份留给 M2 的第一个后�
 - **优雅停止。** 生产环境收到 SIGTERM / SIGINT 时，worker 立即停止领取新任务，并给正在执行的任务 20 秒，与
   adapter-node 关闭 HTTP 连接（最多 30 秒）同时进行；仍未结束的任务被中止并标记失败，之后按重试规则重来。两者都
   结束后关闭连接池。compose 的 `stop_grace_period` 为 40 秒，留够余量。`vite dev` 由 Vite 自己处理信号。
+  中止备份时先给 pg_dump 发 SIGTERM，等它真正退出（5 秒后仍未退出则 SIGKILL）再删除 `.partial` 并报失败，否则还在
+  退出途中的 pg_dump 可能在删除之后又写出文件。
 
 ### 每日备份
 

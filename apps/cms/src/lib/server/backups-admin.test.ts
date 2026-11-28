@@ -32,7 +32,7 @@ import { InvalidInputError } from './modules/site/values.ts';
 const baseUrl = process.env.TEST_DATABASE_URL;
 const migrations = fileURLToPath(new URL('../../../../../packages/db/migrations', import.meta.url));
 
-describe.skipIf(!baseUrl)('backups in the admin', () => {
+describe.skipIf(!baseUrl)('backups in the admin', { timeout: 30_000 }, () => {
   let pool: Pool;
   let db: Database;
   let jobs: Jobs;

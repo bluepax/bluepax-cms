@@ -22,7 +22,7 @@ import { recordStartupBackup, runBackup, type BackupServices } from './run.ts';
 const baseUrl = process.env.TEST_DATABASE_URL;
 const root = fileURLToPath(new URL('../../../db/migrations', import.meta.url));
 
-describe.skipIf(!baseUrl)('runBackup', () => {
+describe.skipIf(!baseUrl)('runBackup', { timeout: 30_000 }, () => {
   let pool: Pool;
   let db: Database;
   let dir: string;

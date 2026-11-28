@@ -43,6 +43,8 @@ export interface DumpOptions {
   command?: string;
   /** Stops pg_dump (SIGTERM) and fails the dump, e.g. when a job runs out of time. */
   signal?: AbortSignal;
+  /** How long pg_dump may take to exit after SIGTERM before it is killed (SIGKILL); 5 s. */
+  killAfterMs?: number;
 }
 
 export interface DumpResult {
@@ -51,12 +53,18 @@ export interface DumpResult {
 }
 
 const STDERR_LIMIT = 4096;
+const KILL_AFTER_MS = 5_000;
 
+/**
+ * Runs the command and settles only once it has exited, also when the signal stops it: until
+ * then it may still create or write its output file, which the caller removes afterwards.
+ */
 function run(
   command: string,
   args: string[],
   env: Record<string, string>,
-  signal?: AbortSignal,
+  signal: AbortSignal | undefined,
+  killAfterMs: number,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
@@ -66,30 +74,44 @@ function run(
     const child = spawn(command, args, {
       env: { ...process.env, ...env },
       stdio: ['ignore', 'ignore', 'pipe'],
-      ...(signal ? { signal } : {}),
     });
     let stderr = '';
+    let stopped: BackupError | undefined;
+    let killTimer: NodeJS.Timeout | undefined;
+    let settled = false;
+    const stop = () => {
+      stopped = new BackupError(`${command} was stopped: the backup was cancelled`);
+      child.kill('SIGTERM');
+      killTimer = setTimeout(() => child.kill('SIGKILL'), killAfterMs);
+    };
+    const settle = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      signal?.removeEventListener('abort', stop);
+      clearTimeout(killTimer);
+      if (error) reject(error);
+      else resolve();
+    };
+    signal?.addEventListener('abort', stop, { once: true });
     child.stderr.setEncoding('utf8');
     child.stderr.on('data', (chunk: string) => {
       stderr = (stderr + chunk).slice(-STDERR_LIMIT);
     });
     child.on('error', (error: NodeJS.ErrnoException) => {
-      if (error.name === 'AbortError') {
-        reject(new BackupError(`${command} was stopped: the backup was cancelled`));
-        return;
-      }
-      reject(
+      // Only a process that never started has nothing to wait for; 'close' follows otherwise.
+      if (child.pid !== undefined) return;
+      settle(
         error.code === 'ENOENT'
           ? new BackupError(`${command} is not installed (it comes with the PostgreSQL client)`)
           : error,
       );
     });
     child.on('close', (code, killedBy) => {
-      if (signal?.aborted) return; // rejected by the 'error' handler above
-      if (code === 0) resolve();
+      if (stopped) settle(stopped);
+      else if (code === 0) settle();
       else {
         const reason = killedBy ? `was killed by ${killedBy}` : `exited with code ${code}`;
-        reject(new BackupError(`${command} ${reason}: ${stderr.trim() || 'no output'}`));
+        settle(new BackupError(`${command} ${reason}: ${stderr.trim() || 'no output'}`));
       }
     });
   });
@@ -101,7 +123,13 @@ export async function dumpDatabase(options: DumpOptions): Promise<DumpResult> {
   await mkdir(dirname(options.file), { recursive: true });
   const { args, env } = pgDumpInvocation(options.databaseUrl, partial);
   try {
-    await run(options.command ?? 'pg_dump', args, env, options.signal);
+    await run(
+      options.command ?? 'pg_dump',
+      args,
+      env,
+      options.signal,
+      options.killAfterMs ?? KILL_AFTER_MS,
+    );
     await rename(partial, options.file);
   } catch (error) {
     await rm(partial, { force: true });
