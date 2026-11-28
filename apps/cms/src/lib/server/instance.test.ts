@@ -63,7 +63,7 @@ const admin = {
   locale: 'zh' as const,
 };
 
-describe.skipIf(!baseUrl)('instance initialisation', () => {
+describe.skipIf(!baseUrl)('instance initialisation', { timeout: 30_000 }, () => {
   const pools: ReturnType<typeof createPool>[] = [];
   async function freshDb(name: string): Promise<Database> {
     const pool = createPool(await freshTestDatabase(baseUrl!, name), 2);

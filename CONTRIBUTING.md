@@ -59,6 +59,10 @@ which pg 9 refuses. A transaction holds one client, so code that may run in one 
 parallel with `allQueries` from `@bluepax/db` (side by side on the pool, one after another in
 a transaction) instead of `Promise.all`.
 
+Give every suite that uses the database an explicit timeout (`{ timeout: 30_000 }` on its
+`describe`): on CI runners a disk stall can make a test that normally takes half a second take
+several, beyond Vitest's default of 5 seconds.
+
 End-to-end tests (Playwright, `e2e/`) drive the built CMS on an empty database
 (`<TEST_DATABASE_URL>_e2e`) and the built example frontend through setup, permissions,
 publishing, the Delivery API and the frontend:

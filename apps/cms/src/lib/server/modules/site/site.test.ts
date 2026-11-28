@@ -192,7 +192,7 @@ const answers = {
   frontendBaseUrl: 'https://www.example.com',
 };
 
-describe.skipIf(!baseUrl)('site module', () => {
+describe.skipIf(!baseUrl)('site module', { timeout: 30_000 }, () => {
   const pools: ReturnType<typeof createPool>[] = [];
   let db: Database;
   let actor: { id: string; ip: string };

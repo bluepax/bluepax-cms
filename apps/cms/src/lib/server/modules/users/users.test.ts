@@ -85,7 +85,7 @@ describe('isEmailAddress', () => {
   });
 });
 
-describe.skipIf(!baseUrl)('users module', () => {
+describe.skipIf(!baseUrl)('users module', { timeout: 30_000 }, () => {
   let pool: ReturnType<typeof createPool>;
   let db: Database;
   let adminRoleId: string;

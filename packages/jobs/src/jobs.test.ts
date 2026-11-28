@@ -33,7 +33,7 @@ async function jobStates(url: string): Promise<{ state: string; retryCount: numb
   }
 }
 
-describe.skipIf(!baseUrl)('Jobs (pg-boss)', () => {
+describe.skipIf(!baseUrl)('Jobs (pg-boss)', { timeout: 30_000 }, () => {
   // Every test gets its own database: jobs, schedules and the instance registry start empty.
   let url: string;
   let n = 0;

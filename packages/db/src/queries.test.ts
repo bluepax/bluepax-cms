@@ -15,7 +15,7 @@ async function backend(db: Executor, label: string): Promise<{ label: string; pi
   return { label, pid: result.rows[0]!.pid };
 }
 
-describe.skipIf(!baseUrl)('allQueries', () => {
+describe.skipIf(!baseUrl)('allQueries', { timeout: 30_000 }, () => {
   let pool: Pool;
   let db: Database;
 

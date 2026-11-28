@@ -8,7 +8,7 @@ import { freshTestDatabase } from './testing.ts';
 const baseUrl = process.env.TEST_DATABASE_URL;
 const root = fileURLToPath(new URL('../migrations', import.meta.url));
 
-describe.skipIf(!baseUrl)('runMigrations', () => {
+describe.skipIf(!baseUrl)('runMigrations', { timeout: 30_000 }, () => {
   let url: string;
   const pools: pg.Pool[] = [];
   const pool = (): pg.Pool => {
