@@ -1,7 +1,8 @@
+import { existsSync } from 'node:fs';
 import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { BackupError, dumpDatabase, pgDumpInvocation } from './backup.ts';
 
 describe('pgDumpInvocation', () => {
@@ -35,6 +36,16 @@ const FAKE = `#!/usr/bin/env node
 const fs = require('node:fs');
 const file = process.argv.find((a) => a.startsWith('--file=')).slice(7);
 if (process.env.FAKE_SLOW) {
+  // Still busy when told to stop: writes once more before it exits (linger), or ignores SIGTERM
+  // (stubborn). The handler is in place before the file appears.
+  process.on('SIGTERM', () => {
+    if (process.env.FAKE_SLOW === 'stubborn') return;
+    setTimeout(() => {
+      fs.appendFileSync(file, ' late');
+      fs.writeFileSync(process.env.FAKE_EXITED, '');
+      process.exit(143);
+    }, 200);
+  });
   fs.writeFileSync(file, 'half');
   setTimeout(() => {}, 60000);
   return;
@@ -61,6 +72,7 @@ describe('dumpDatabase', () => {
   afterAll(async () => {
     await rm(dir, { recursive: true, force: true });
     delete process.env.FAKE_FAIL;
+    delete process.env.FAKE_EXITED;
   });
 
   it('writes the dump through a partial file and reports its size', async () => {
@@ -91,20 +103,36 @@ describe('dumpDatabase', () => {
     delete process.env.FAKE_FAIL;
   });
 
-  it('stops pg_dump when the signal aborts and leaves no file behind', async () => {
-    process.env.FAKE_SLOW = '1';
-    const file = join(dir, 'aborted', 'daily.dump');
+  /** Starts a slow dump and aborts it once pg_dump has written part of the file. */
+  async function abortedDump(mode: 'linger' | 'stubborn', name: string, killAfterMs?: number) {
+    process.env.FAKE_SLOW = mode;
+    const exited = join(dir, `${name}.exited`);
+    process.env.FAKE_EXITED = exited;
+    const file = join(dir, name, 'daily.dump');
     const controller = new AbortController();
     const dump = dumpDatabase({
       databaseUrl: 'postgres://bluepax@db/bluepax',
       file,
       command,
       signal: controller.signal,
+      ...(killAfterMs ? { killAfterMs } : {}),
     });
-    setTimeout(() => controller.abort(), 300);
+    try {
+      await vi.waitFor(() => readFile(`${file}.partial`), { timeout: 10_000, interval: 20 });
+    } finally {
+      controller.abort();
+      delete process.env.FAKE_SLOW;
+    }
+    return { dump, file, controller, exited };
+  }
+
+  it('stops pg_dump when the signal aborts, waits for it to exit and leaves no file behind', async () => {
+    const { dump, file, controller, exited } = await abortedDump('linger', 'aborted');
     await expect(dump).rejects.toThrow(/was stopped: the backup was cancelled/);
+    // pg_dump wrote once more after SIGTERM; the dump only failed once it had exited, so the
+    // partial file it left was removed after its last write.
+    expect(existsSync(exited)).toBe(true);
     expect(await readdir(join(dir, 'aborted'))).toEqual([]);
-    delete process.env.FAKE_SLOW;
     // An aborted signal never starts pg_dump.
     await expect(
       dumpDatabase({
@@ -114,6 +142,12 @@ describe('dumpDatabase', () => {
         signal: controller.signal,
       }),
     ).rejects.toThrow(/was not started/);
+  });
+
+  it('kills pg_dump when it does not exit after SIGTERM', async () => {
+    const { dump } = await abortedDump('stubborn', 'stubborn', 200);
+    await expect(dump).rejects.toThrow(/was stopped: the backup was cancelled/);
+    expect(await readdir(join(dir, 'stubborn'))).toEqual([]);
   });
 
   it('says so when pg_dump is not installed', async () => {
