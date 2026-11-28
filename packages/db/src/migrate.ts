@@ -104,6 +104,12 @@ export interface RunMigrationsOptions {
    * Used to take a full database backup before migrating; a throw stops the migration.
    */
   beforeMigrate?: (pending: PendingMigrations[], context: BeforeMigrateContext) => Promise<void>;
+  /**
+   * Called while still holding the lock once the database is up to date, also when nothing was
+   * pending. Used to install or upgrade the job queue's own schema after the migrations, so it
+   * never runs against tables a pending migration is about to change (docs/adr/0019).
+   */
+  afterMigrate?: () => Promise<void>;
 }
 
 /**
@@ -121,18 +127,26 @@ export async function runMigrations(
       const count = await pendingFor(client, set);
       if (count > 0) pending.push({ name: set.name, count });
     }
-    if (pending.length === 0) return pending;
-
-    await options.beforeMigrate?.(pending, { fresh: await isFresh(client, sets) });
-    const db = drizzle({ client });
-    for (const set of sets) {
-      if (!pending.some((p) => p.name === set.name)) continue;
-      await migrate(db, {
-        migrationsFolder: set.folder,
-        migrationsSchema: MIGRATIONS_SCHEMA,
-        migrationsTable: tableFor(set),
-      });
-    }
+    if (pending.length > 0) await apply(client, sets, pending, options);
+    await options.afterMigrate?.();
     return pending;
   });
+}
+
+async function apply(
+  client: PoolClient,
+  sets: readonly MigrationSet[],
+  pending: PendingMigrations[],
+  options: RunMigrationsOptions,
+): Promise<void> {
+  await options.beforeMigrate?.(pending, { fresh: await isFresh(client, sets) });
+  const db = drizzle({ client });
+  for (const set of sets) {
+    if (!pending.some((p) => p.name === set.name)) continue;
+    await migrate(db, {
+      migrationsFolder: set.folder,
+      migrationsSchema: MIGRATIONS_SCHEMA,
+      migrationsTable: tableFor(set),
+    });
+  }
 }

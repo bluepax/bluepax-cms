@@ -125,3 +125,32 @@ export const auditLog = pgTable(
   },
   (t) => [index('audit_log_at_idx').on(t.at.desc()), index('audit_log_actor_idx').on(t.actorId)],
 );
+
+/**
+ * One attempt at a full database backup (chapter 9, "备份与可观测"): the daily backup, one an
+ * admin started, or the backup taken before migrations. The files themselves live in the
+ * backups folder; this table keeps the results, failures included, for the admin and the
+ * system status (docs/adr/0019).
+ */
+export const backupRuns = pgTable(
+  'backup_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** `daily`, `manual` or `pre-migrate`. */
+    kind: text('kind').notNull(),
+    /** `running`, `succeeded` or `failed`. */
+    status: text('status').notNull(),
+    /** File name in the backups folder, once known. */
+    file: text('file'),
+    bytes: bigint('bytes', { mode: 'number' }),
+    error: text('error'),
+    /** pg-boss job and its retry count; null for the backup before migrations. */
+    jobId: text('job_id'),
+    attempt: integer('attempt').notNull().default(0),
+    /** Older daily backups this run removed under the retention rules. */
+    removed: jsonb('removed').$type<string[]>().notNull().default([]),
+    startedAt: timestamptz('started_at').notNull().defaultNow(),
+    finishedAt: timestamptz('finished_at'),
+  },
+  (t) => [index('backup_runs_started_idx').on(t.startedAt.desc())],
+);
